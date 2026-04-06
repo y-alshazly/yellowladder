@@ -1,0 +1,160 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "defaultBase": "develop",
+  "parallel": 5,
+  "namedInputs": {
+    "default": [
+      "{projectRoot}/**/*",
+      "sharedGlobals"
+    ],
+    "production": [
+      "default",
+      "!{projectRoot}/**/*.integration-spec.ts",
+      "!{projectRoot}/eslint.config.mjs",
+      "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
+      "!{projectRoot}/tsconfig.spec.json",
+      "!{projectRoot}/jest.config.*",
+      "!{projectRoot}/src/test-setup.[jt]s",
+      "!{projectRoot}/test-setup.[jt]s",
+      "!{projectRoot}/.eslintrc.json"
+    ],
+    "sharedGlobals": [
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/jest.preset.js"
+    ]
+  },
+  "plugins": [
+    {
+      "plugin": "@nx/eslint/plugin",
+      "options": {
+        "targetName": "lint"
+      }
+    },
+    {
+      "plugin": "@nx/jest/plugin",
+      "options": {
+        "targetName": "test"
+      }
+    },
+    {
+      "plugin": "@nx/webpack/plugin",
+      "options": {
+        "buildTargetName": "build",
+        "serveTargetName": "serve",
+        "previewTargetName": "preview",
+        "buildDepsTargetName": "build-deps",
+        "watchDepsTargetName": "watch-deps",
+        "serveStaticTargetName": "serve-static"
+      }
+    },
+    {
+      "plugin": "@nx/vite/plugin",
+      "options": {
+        "buildTargetName": "build",
+        "testTargetName": "vitest",
+        "serveTargetName": "serve",
+        "devTargetName": "dev",
+        "previewTargetName": "preview",
+        "serveStaticTargetName": "serve-static",
+        "typecheckTargetName": "typecheck",
+        "buildDepsTargetName": "build-deps",
+        "watchDepsTargetName": "watch-deps"
+      }
+    },
+    {
+      "plugin": "@nx/react-native/plugin",
+      "include": [
+        "apps/mobile-*/**"
+      ],
+      "options": {
+        "startTargetName": "start",
+        "upgradeTargetName": "update",
+        "bundleTargetName": "bundle",
+        "podInstallTargetName": "pod-install",
+        "runIosTargetName": "run-ios",
+        "runAndroidTargetName": "run-android",
+        "buildIosTargetName": "build-ios",
+        "buildAndroidTargetName": "build-android",
+        "syncDepsTargetName": "sync-deps"
+      }
+    },
+    {
+      "plugin": "@nx/react-native/plugin",
+      "options": {
+        "startTargetName": "start",
+        "upgradeTargetName": "update",
+        "bundleTargetName": "bundle",
+        "podInstallTargetName": "pod-install",
+        "runIosTargetName": "run-ios",
+        "runAndroidTargetName": "run-android",
+        "buildIosTargetName": "build-ios",
+        "buildAndroidTargetName": "build-android",
+        "syncDepsTargetName": "sync-deps"
+      }
+    }
+  ],
+  "targetDefaults": {
+    "@nx/js:tsc": {
+      "cache": true,
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "production",
+        "^production"
+      ]
+    },
+    "lint": {
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/src/**/*",
+        "{projectRoot}/eslint.config.mjs",
+        "{projectRoot}/tsconfig*.json",
+        "{workspaceRoot}/eslint.config.mjs",
+        "{workspaceRoot}/tsconfig.base.json"
+      ]
+    },
+    "test": {
+      "cache": true,
+      "inputs": [
+        "default",
+        "^production"
+      ]
+    },
+    "typecheck": {
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production"
+      ]
+    }
+  },
+  "generators": {
+    "@nx/react": {
+      "library": {
+        "style": "none",
+        "linter": "eslint",
+        "unitTestRunner": "none",
+        "compiler": "swc"
+      },
+      "application": {
+        "babel": true,
+        "style": "none",
+        "linter": "eslint",
+        "bundler": "vite"
+      },
+      "component": {
+        "style": "none"
+      }
+    },
+    "@nx/nest": {
+      "library": {
+        "linter": "eslint",
+        "unitTestRunner": "jest"
+      },
+      "application": {
+        "linter": "eslint"
+      }
+    }
+  }
+}

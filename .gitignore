@@ -1,0 +1,75 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+build/
+tmp
+out-tsc
+*.tsbuildinfo
+
+# Environment
+.env
+.env*.local
+
+# Test & coverage
+coverage/
+
+# Nx
+.nx/cache
+.nx/workspace-data
+
+# Debug logs
+*.log
+
+# Vite
+vite.config.*.timestamp*
+
+# IDEs
+/.idea
+*.iml
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# React Native — Xcode
+DerivedData
+xcuserdata
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+*.xccheckout
+*.xcuserstate
+*.moved-aside
+*.hmap
+*.ipa
+**/.xcode.env.local
+
+# React Native — Android
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+.gradle
+local.properties
+*.hprof
+.cxx/
+
+# React Native — CocoaPods
+**/Pods/
+**/vendor/bundle/
+
+# React Native — Metro
+.metro-health-check*
+*.jsbundle
