@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/block-app-business-logic.sh" },
+          { "type": "command", "command": ".claude/hooks/block-flat-structure-violation.sh" },
+          { "type": "command", "command": ".claude/hooks/block-forbidden-patterns.sh" },
+          { "type": "command", "command": ".claude/hooks/block-schema-ownership.sh" }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/block-dangerous-git.sh" },
+          { "type": "command", "command": ".claude/hooks/validate-commit-format.sh" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/auto-format.sh" },
+          { "type": "command", "command": ".claude/hooks/warn-authorization-in-controllers.sh" },
+          { "type": "command", "command": ".claude/hooks/warn-dto-convention.sh" },
+          { "type": "command", "command": ".claude/hooks/warn-accounting-ownership.sh" },
+          { "type": "command", "command": ".claude/hooks/warn-import-paths.sh" },
+          { "type": "command", "command": ".claude/hooks/warn-monetary-float.sh" },
+          { "type": "command", "command": ".claude/hooks/warn-service-signatures.sh" },
+          { "type": "command", "command": ".claude/hooks/warn-tenant-context.sh" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/session-start-reminder.sh" }
+        ]
+      }
+    ]
+  }
+}

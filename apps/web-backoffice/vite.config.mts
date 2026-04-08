@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 
 const config = defineConfig(() => ({
   root: import.meta.dirname,
-  cacheDir: '../../node_modules/.vite/apps/web-client',
+  cacheDir: '../../node_modules/.vite/apps/web-backoffice',
   server: {
     port: 4200,
     host: 'localhost',
@@ -15,7 +15,7 @@ const config = defineConfig(() => ({
   preview: { port: 4200, host: 'localhost' },
   plugins: [react(), nxViteTsPaths()],
   build: {
-    outDir: '../../dist/apps/web-client',
+    outDir: '../../dist/apps/web-backoffice',
     emptyOutDir: true,
     reportCompressedSize: true,
     target: 'es2020',
