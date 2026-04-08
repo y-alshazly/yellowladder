@@ -6,15 +6,15 @@
     "node": ">=20.19.0"
   },
   "scripts": {
-    "dev": "nx run-many -t serve -p core-service web-client",
+    "dev": "nx run-many -t serve -p core-service web-backoffice",
     "dev:api": "nx serve core-service",
-    "dev:web": "nx serve web-client",
-    "dev:mobile:ios": "nx run-ios mobile-client",
-    "dev:mobile:android": "nx run-android mobile-client",
+    "dev:web": "nx serve web-backoffice",
+    "dev:mobile:ios": "nx run-ios mobile-backoffice",
+    "dev:mobile:android": "nx run-android mobile-backoffice",
     "lint": "nx run-many -t lint --exclude=@yellowladder/source",
     "test": "nx run-many -t test --exclude=@yellowladder/source",
     "typecheck": "nx run-many -t typecheck --exclude=@yellowladder/source",
-    "build": "nx run-many -t build -p core-service web-client",
+    "build": "nx run-many -t build -p core-service web-backoffice",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
     "graph": "nx graph"
