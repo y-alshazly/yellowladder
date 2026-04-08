@@ -1,0 +1,12 @@
+{
+  "name": "mobile-backoffice",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/mobile-backoffice/src",
+  "projectType": "application",
+  "tags": [
+    "type:app",
+    "platform:mobile"
+  ],
+  "// targets": "to see all targets run: nx show project mobile-backoffice --web",
+  "targets": {}
+}
