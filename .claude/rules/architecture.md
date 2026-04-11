@@ -1,5 +1,5 @@
 ---
-description: Architecture decisions — thin apps, sub-modules, two-level multi-tenancy, CASL, security, migration constraints
+description: Architecture decisions — thin apps, sub-modules, two-level multi-tenancy, RBAC, security, migration constraints
 alwaysApply: true
 ---
 
@@ -48,7 +48,7 @@ WRONG (architectural layers):                         update-order-status.dto.ts
 
 ## Multi-Tenancy: Two-Level Hierarchy
 
-**Strategy:** Shared database, two-level hierarchy `Company → Shop → data`. PostgreSQL Row-Level Security on `company_id`. CASL service-layer enforcement on `shop_id`.
+**Strategy:** Shared database, two-level hierarchy `Company → Shop → data`. PostgreSQL Row-Level Security on `company_id`. RBAC service-layer enforcement on `shop_id`.
 
 **Why two-level:** Restaurant operators ("Companies") run multiple branches ("Shops"). A Company Admin needs full access across all their shops; a Shop Manager only their assigned shops. This is the **key divergence from the legacy Tappd single-level model** and is non-negotiable.
 
@@ -59,11 +59,11 @@ WRONG (architectural layers):                         update-order-status.dto.ts
 
 ### Three Database Roles
 
-| Role         | RLS      | Permissions                                                                | Used by                                                       |
-| ------------ | -------- | -------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `app_tenant` | Enforced | Full CRUD (scoped to one company)                                          | All authenticated request handling (default `PrismaService`)  |
-| `app_public` | Bypassed | `SELECT` only on a small set of public-readable tables (rarely used)       | Reserved for future public read endpoints if Yellow Ladder ever adds them |
-| `app_system` | Bypassed | Full CRUD (all tables)                                                     | `SUPER_ADMIN` operations only, gated by CASL in the service layer |
+| Role         | RLS      | Permissions                                                          | Used by                                                                   |
+| ------------ | -------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `app_tenant` | Enforced | Full CRUD (scoped to one company)                                    | All authenticated request handling (default `PrismaService`)              |
+| `app_public` | Bypassed | `SELECT` only on a small set of public-readable tables (rarely used) | Reserved for future public read endpoints if Yellow Ladder ever adds them |
+| `app_system` | Bypassed | Full CRUD (all tables)                                               | `SUPER_ADMIN` operations only, gated by RBAC in the service layer         |
 
 ### Tenant Context Mechanism
 
@@ -74,11 +74,13 @@ WRONG (architectural layers):                         update-order-status.dto.ts
 
 The **`PrismaService` Proxy** wraps every Prisma model operation in a mini-transaction with `SET LOCAL app.current_company`, sourced from `TenantContextStore` (AsyncLocalStorage). Each request gets its own async context, and `SET LOCAL` is transaction-scoped — no cross-request leakage even with a multi-connection pool.
 
-### Shop Scoping (CASL, NOT RLS)
+### Shop Scoping (RBAC, NOT RLS)
 
-- RLS only enforces `company_id`. **Shop scoping (`shop_id`) is a service-layer concern enforced by CASL.**
-- Every shop-scoped query must filter by `shop_id`: `where: { shopId: { in: user.shopIds } }`.
-- A base service class encapsulates the shop-check helper. Use it instead of duplicating filtering logic.
+- RLS only enforces `company_id`. **Shop scoping (`shop_id`) is a service-layer concern enforced by RBAC.**
+- Every shop-scoped query must filter by `shop_id` explicitly: `where: { shopId: { in: user.shopIds } }`.
+- `AuthorizationService.scopeWhereToUserShops(user, baseWhere)` is the canonical helper — it adds the `shopId IN [...]` clause for roles that are shop-bounded (`SHOP_MANAGER`, `EMPLOYEE`) and is a no-op for `COMPANY_ADMIN` and `SUPER_ADMIN`.
+- `AuthorizationService.assertShopAccess(user, shopId)` is the single-shop equivalent — throws `ForbiddenException` if the shop is not in the user's allowed set.
+- A base service class may wrap these helpers to reduce boilerplate, but the helpers themselves are the source of truth.
 - `SUPER_ADMIN` and `COMPANY_ADMIN` see all shops within their company. `SHOP_MANAGER` and `EMPLOYEE` see only their assigned shops.
 
 ### Multi-Tenant vs Platform-Global Tables
@@ -105,44 +107,63 @@ The **`PrismaService` Proxy** wraps every Prisma model operation in a mini-trans
 
 Both blockers are non-negotiable. Applying RLS over the current data state will silently break the application.
 
-## Authorization Model (CASL — Five Fixed Tiers)
+## Authorization Model (RBAC — Five Fixed Tiers)
 
-The Identity domain's `authorization` sub-module implements authorization using **CASL** + **`@casl/prisma`**. Authorization is enforced in the **service layer**, not via guards, so it works regardless of entry point (HTTP, event handlers, scheduled jobs, internal service calls).
+The Identity domain's `authorization` sub-module implements **Role-Based Access Control (RBAC)**. Authorization is enforced in the **service layer**, so it works regardless of entry point (HTTP, event handlers, scheduled jobs, internal service calls). A thin decorator + `RolesGuard` is optionally available at the controller layer for early rejection of obviously unauthorized requests, but the service layer is the ultimate authority.
 
-**Five fixed user tiers** (no pluggable role/policy system; the tiers are baked into `AbilityFactory`):
+**Five fixed user tiers** (no pluggable role/policy system; the tiers are baked into `RolePermissionRegistry` in code):
 
-| Role            | Scope                                                       | Notes                                                                 |
-| --------------- | ----------------------------------------------------------- | --------------------------------------------------------------------- |
-| `SUPER_ADMIN`   | Platform-wide, cross-company                                | RLS-bypassing via `app_system`. Gated by CASL.                        |
-| `COMPANY_ADMIN` | Full access within one company, all shops                   | The default admin for a merchant.                                     |
-| `SHOP_MANAGER`  | Manages one or more shops within one company                | `user.shopIds` is the access boundary.                                |
-| `EMPLOYEE`      | Operates POS / kitchen within assigned shops                | Read-most, limited writes. Cannot modify menus or settings.           |
-| `CUSTOMER`      | Reserved — exists in the data model but has no surface today | Yellow Ladder has no customer-facing app today.                       |
+| Role            | Scope                                                        | Notes                                                       |
+| --------------- | ------------------------------------------------------------ | ----------------------------------------------------------- |
+| `SUPER_ADMIN`   | Platform-wide, cross-company                                 | RLS-bypassing via `app_system`. Gated by RBAC.              |
+| `COMPANY_ADMIN` | Full access within one company, all shops                    | The default admin for a merchant.                           |
+| `SHOP_MANAGER`  | Manages one or more shops within one company                 | `user.shopIds` is the access boundary.                      |
+| `EMPLOYEE`      | Operates POS / kitchen within assigned shops                 | Read-most, limited writes. Cannot modify menus or settings. |
+| `CUSTOMER`      | Reserved — exists in the data model but has no surface today | Yellow Ladder has no customer-facing app today.             |
+
+**Permissions are strings** in the form `{resource}:{action}` — for example `menu-items:create`, `orders:read`, `shops:update`. They are declared in `libs/shared/types` as an `as const` object (no TypeScript `enum`).
+
+```typescript
+// libs/shared/types/src/auth/permissions.constants.ts
+export const Permissions = {
+  MenuItemsCreate: 'menu-items:create',
+  MenuItemsRead: 'menu-items:read',
+  MenuItemsUpdate: 'menu-items:update',
+  MenuItemsDelete: 'menu-items:delete',
+  OrdersRead: 'orders:read',
+  OrdersUpdate: 'orders:update',
+  // ...
+} as const;
+
+export type Permission = (typeof Permissions)[keyof typeof Permissions];
+```
 
 **Key services:**
 
-- **`AbilityFactory`** — Reads a user's `role` and `shopIds` and returns an `AppAbility` instance. The mapping from role → ability is hard-coded (not data-driven) — there is no `Role` / `Policy` / `PolicyStatement` table system. CASL ability rules live in code.
+- **`RolePermissionRegistry`** — A code-based `Record<Role, ReadonlySet<Permission>>` that maps each of the 5 fixed roles to the flat set of permissions they hold. The mapping is hard-coded (not data-driven) — there is no `Role` / `Policy` / `PolicyStatement` table system. Adding a new permission means editing the registry.
 - **`AuthorizationService`** — Central facade injected by domain services:
-  - `requirePermission(ability, action, resource)` — type-level gate, throws `ForbiddenException`
-  - `mergeConditionsIntoWhere(ability, action, resource, baseWhere)` — merges `@casl/prisma`'s `accessibleBy` conditions into Prisma WHERE clauses (e.g., adds `shopId IN [...]` for `SHOP_MANAGER`)
-  - `ensureFieldsPermitted(ability, body, resource, action)` — field-level write enforcement
-  - `pickPermittedFields(ability, data, resource, action)` — field-level read filtering on responses
-  - `ensureConditionsMet(ability, data, resource, action)` — validates data against ability conditions
+  - `requirePermission(user, permission)` — throws `ForbiddenException` if the user's role does not include the permission
+  - `hasPermission(user, permission)` — boolean check (no throw) for conditional logic / UI gating
+  - `scopeWhereToUserShops(user, baseWhere)` — helper that appends `shopId IN [...]` to a Prisma WHERE clause for shop-bounded roles (`SHOP_MANAGER`, `EMPLOYEE`); no-op for `COMPANY_ADMIN` and `SUPER_ADMIN`
+  - `assertShopAccess(user, shopId)` — throws `ForbiddenException` if the shop is not in the user's allowed set
+  - `assertCompanyAccess(user, companyId)` — throws if the user is not attached to the target company (only `SUPER_ADMIN` may cross companies)
 
-**Action naming:** Plain verbs — `Create`, `Read`, `Update`, `Delete`, `Publish`, `View`, `Manage`. The resource/subject implies the domain. Example: `can('Create', 'MenuItem')`, `can('View', 'Order')`.
+**Permission naming:** lowercase `{resource}:{action}` strings. Resources use the kebab-case plural of the entity (`menu-items`, `shop-discounts`). Actions are plain verbs (`create`, `read`, `update`, `delete`, `publish`, `view`, `manage`). Use `manage` sparingly — prefer specific verbs.
 
 **Replaces** the legacy `allowedTo.ts` and `allowSelfOrSuperAdmin.ts` middleware.
 
 **Typical service flow:**
 
 ```text
-Create: requirePermission → ensureFieldsPermitted → ensureConditionsMet → create → pickPermittedFields
-Read:   requirePermission → mergeConditionsIntoWhere → findMany → pickPermittedFields
-Update: requirePermission → fetch with mergeConditionsIntoWhere → ensureFieldsPermitted → update → pickPermittedFields
-Delete: requirePermission → fetch with mergeConditionsIntoWhere → delete
+Create: requirePermission → assertShopAccess (if shop-scoped) → create
+Read:   requirePermission → scopeWhereToUserShops → findMany
+Update: requirePermission → scopeWhereToUserShops (fetch) → update
+Delete: requirePermission → scopeWhereToUserShops (fetch) → delete
 ```
 
-**No authorization guards.** Controllers use `AuthenticationGuard` for authentication only. Authorization lives in services via `AuthorizationService`.
+**Field-level control** is handled with explicit per-role allowlists in the service (e.g., `if (user.role === Role.EMPLOYEE) delete input.basePrice`). No automatic field filtering — it becomes explicit code that is easy to audit and grep.
+
+**Controller-level decorator (optional).** Controllers may annotate endpoints with `@RequirePermission(Permissions.OrdersRead)`, enforced by a global `RolesGuard`. This is a convenience for early rejection; services MUST still call `AuthorizationService.requirePermission` because the guard is skipped for non-HTTP entry points (event handlers, scheduled jobs).
 
 ## Cross-Domain Communication
 
@@ -216,7 +237,7 @@ The daily sync runs as a Cloud Run Job triggered by Cloud Scheduler at `23:59`.
 - **Passwords hashed with bcrypt** (cost factor 12+).
 - **Stripe webhook signatures verified** before processing. Never trust unsigned webhook payloads.
 - **Do not commit secrets, API keys, or credentials.** `.env` contains shared defaults only — never add real secrets to it. `.env*.local` and `.env` are gitignored.
-- **`SystemPrismaService` (when introduced) must only be injected** in services where `AuthorizationService.requirePermission()` verifies `SUPER_ADMIN` ability. Never expose it to non-`SUPER_ADMIN` endpoints.
+- **`SystemPrismaService` (when introduced) must only be injected** in services where `AuthorizationService.requirePermission()` first verifies the user has a `SUPER_ADMIN`-gated permission. Never expose it to non-`SUPER_ADMIN` endpoints.
 - **Audit trail:** all backoffice write operations are logged via the `@AuditLog()` decorator with user, company, action, resource, timestamp, and (where applicable) before/after diffs.
 - **API endpoints must not expose Prisma's query language to clients.** No generic `where`, `select`, or `include` parameters. Filter/sort/search capabilities are explicitly declared in per-entity typed query DTOs with allowlisted fields.
 - **OTP rate limits:** 5min TTL per code, max 5 verification attempts per code, max 3 codes per email per 15-minute window.

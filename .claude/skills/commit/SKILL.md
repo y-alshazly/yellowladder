@@ -11,6 +11,7 @@ allowed-tools: Bash(git *), Read, Grep
 Stage changes and create a single commit following Yellow Ladder conventions.
 
 **Argument:**
+
 - `$1` (optional) — file paths to stage, OR a free-form description of the change
 
 ## Pre-flight checks
@@ -42,8 +43,8 @@ Stage changes and create a single commit following Yellow Ladder conventions.
 
    For each modified `*.controller.ts`:
    - **VIOLATION** if it does business logic instead of delegating to a service
-   - **VIOLATION** if it uses `@RequirePermission` or other authorization decorators (authorization belongs in services)
-   - **WARNING** if it does not use `@CurrentAbility()` / `@CurrentCompany()` for write endpoints
+   - **WARNING** if it does not use `@CurrentUser()` on authenticated endpoints (write endpoints especially need the user for service-layer authorization and audit logging)
+   - **NOTE** `@RequirePermission(Permissions.XxxYyy)` on controllers is allowed and encouraged for early rejection via `RolesGuard`, but the service layer still owns the final authorization call
 
    For any file:
    - **VIOLATION** if it contains the hardcoded OTP `886644`
@@ -59,6 +60,7 @@ Stage changes and create a single commit following Yellow Ladder conventions.
 6. **Validate the scope** against the Yellow Ladder allowlist (see `.claude/rules/git.md`).
 
 7. **Draft the commit message:**
+
    ```
    {type}({scope}): {description}
 
@@ -70,6 +72,7 @@ Stage changes and create a single commit following Yellow Ladder conventions.
 8. **Show the message** and ask for confirmation.
 
 9. **Create the commit** with HEREDOC:
+
    ```bash
    git commit -m "$(cat <<'EOF'
    feat(backend-catalog-menu-items): add modifier groups
@@ -94,5 +97,6 @@ Stage changes and create a single commit following Yellow Ladder conventions.
 ## Hand-off
 
 After the commit:
+
 - Use `pr` skill to push and open a PR
 - Use `commit` again for follow-up commits on the same branch

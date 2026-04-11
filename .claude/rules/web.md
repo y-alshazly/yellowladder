@@ -12,28 +12,30 @@ paths:
 
 # Web Conventions (React + MUI)
 
+> **⚠️ SCOPE: `apps/web-backoffice` is PARKED.** It exists as an empty placeholder in the monorepo for future work, but **no feature implementation should target the web app right now**. All active feature work targets `apps/mobile-backoffice`. This rule file remains in the repo so the web conventions are documented for when web is unparked — do NOT start building on it without explicit user approval. See `project.md` §Active Frontend Scope.
+
 ## File Naming
 
 All files use `kebab-case.{suffix}.ts(x)`:
 
-| File Type           | Suffix           | Example                       |
-| ------------------- | ---------------- | ----------------------------- |
-| Component           | `.component.tsx` | `menu-item-list.component.tsx`|
-| Hook                | `.hook.ts`       | `use-cart.hook.ts`            |
-| Zod schema          | `.schema.ts`     | `create-menu-item.schema.ts`  |
-| RTK Query API slice | `.api.ts`        | `catalog.api.ts`              |
-| Redux slice         | `.slice.ts`      | `cart.slice.ts`               |
-| Route               | `.route.tsx`     | `menu-items-list.route.tsx`   |
-| Provider            | `.provider.tsx`  | `rtl-cache.provider.tsx`      |
-| Theme               | `.theme.ts`      | `mui.theme.ts`                |
-| Utility             | `.util.ts`       | `format-currency.util.ts`     |
-| Types               | `.types.ts`      | `cart.types.ts`               |
-| Constants           | `.constants.ts`  | `order-status.constants.ts`   |
+| File Type           | Suffix           | Example                        |
+| ------------------- | ---------------- | ------------------------------ |
+| Component           | `.component.tsx` | `menu-item-list.component.tsx` |
+| Hook                | `.hook.ts`       | `use-cart.hook.ts`             |
+| Zod schema          | `.schema.ts`     | `create-menu-item.schema.ts`   |
+| RTK Query API slice | `.api.ts`        | `catalog.api.ts`               |
+| Redux slice         | `.slice.ts`      | `cart.slice.ts`                |
+| Route               | `.route.tsx`     | `menu-items-list.route.tsx`    |
+| Provider            | `.provider.tsx`  | `theme.provider.tsx`           |
+| Theme               | `.theme.ts`      | `mui.theme.ts`                 |
+| Utility             | `.util.ts`       | `format-currency.util.ts`      |
+| Types               | `.types.ts`      | `cart.types.ts`                |
+| Constants           | `.constants.ts`  | `order-status.constants.ts`    |
 
 ## UI Components (MUI 7)
 
 - Feature libs import standard components directly from `@mui/material`. **No wrapper layer.**
-- `shared/web-ui` provides: MUI theme configuration (palette, typography, RTL, breakpoints), `ThemeProvider` setup, the Emotion RTL cache, and custom composite components that don't exist in MUI (e.g., `OrderCard`, `MenuItemCard`).
+- `shared/web-ui` provides: MUI theme configuration (palette, typography, breakpoints — **LTR only, no RTL cache**), `ThemeProvider` setup, and custom composite components that don't exist in MUI (e.g., `OrderCard`, `MenuItemCard`).
 - **Never define a one-off theme** in a feature lib.
 
 ## Component Conventions
@@ -81,86 +83,101 @@ All files use `kebab-case.{suffix}.ts(x)`:
 
 ## Routing
 
-- **Locale-prefixed:** every route is `/(en|ar)/{path}`. Example: `/en/menu-items`, `/ar/orders/123`.
+- **Locale-prefixed:** every route is `/(en|de|fr)/{path}`. Example: `/en/menu-items`, `/de/orders/123`, `/fr/orders/123`.
 - **Route table** lives in `apps/web-backoffice/src/routes/`.
 - **Lazy load** feature libs at the route boundary (`React.lazy` + `Suspense`).
-- **Auth guard** at the route level — unauthenticated users redirect to `/(en|ar)/login`.
-- **RTL switching:** the locale segment determines `dir="rtl"` on the document root via the `LocaleProvider`. The Emotion cache is swapped accordingly.
+- **Auth guard** at the route level — unauthenticated users redirect to `/(en|de|fr)/login`.
+- **Locale switching:** the locale segment in the URL drives the active `react-i18next` language. No `dir` attribute manipulation — the app is LTR only.
 
-## Theming and RTL
+## Theming (LTR only)
 
-- The MUI theme + RTL config lives in `libs/shared/web-ui/src/theme/`.
-- The Emotion cache for RTL is configured in `libs/shared/web-ui/src/providers/rtl-cache.provider.tsx`.
-- The root `App` wraps with `<ThemeProvider>` + `<RtlProvider>` based on the active locale.
-- **Verify custom `sx` styles** using `marginLeft`/`paddingRight` use logical properties (`marginInlineStart`/`paddingInlineEnd`) instead, so they flip correctly in RTL.
+- The MUI theme lives in `libs/shared/web-ui/src/theme/`.
+- The root `App` wraps with `<ThemeProvider>` once — no RTL provider, no Emotion RTL cache.
+- **Yellow Ladder does NOT support RTL.** Do not install `stylis-plugin-rtl`, do not set `dir="rtl"`, do not create an `RtlProvider`. If a future locale needs RTL, that is a major project change and requires explicit architect sign-off.
+- You MAY still use CSS logical properties (`marginInlineStart`/`paddingInlineEnd`) for good hygiene, but they are not required — `marginLeft`/`paddingRight` are fine under LTR-only.
 
 ## i18n
 
-- When creating new UI, add both `en.json` and `ar.json` entries in the same pass.
-- Arabic has 6 plural forms (zero, one, two, few, many, other). Use ICU message format.
-- Translation files: `libs/shared/i18n/src/messages/en.json` and `ar.json`.
+- When creating new UI, add `en.json`, `de.json`, and `fr.json` entries **in the same commit**. The `audit-translations` skill validates that every key exists in all three catalogs.
+- Plural rules for `en`, `de`, `fr` are the simple `{one, other}` ICU pattern. ICU message format is still used for interpolation, gender, and nested plurals.
+- Translation files: `libs/shared/i18n/src/messages/en.json`, `de.json`, `fr.json`.
 
-## Authorization UI (CASL)
+## Authorization UI (RBAC)
 
-Frontend authorization is enforced using two components from `@yellowladder/shared-web-ui`: `CanAction` and `CanField`. These read the user's CASL ability (synced via `useAbilitySync` hook with periodic polling + focus refetch) and hide/disable UI elements the user lacks permission for.
+Frontend authorization mirrors the backend RBAC model. The user's `role` and flattened `permissions: Permission[]` list come from the authenticated-user RTK Query endpoint (`/api/v1/auth/me`) and are stored in a Redux auth slice in `@yellowladder/shared-store`. A single component — `HasPermission` — and its imperative counterpart hook — `useHasPermission` — from `@yellowladder/shared-web-ui` gate UI elements.
 
-The 5 user tiers (`SUPER_ADMIN`, `COMPANY_ADMIN`, `SHOP_MANAGER`, `EMPLOYEE`, `CUSTOMER`) determine which actions and fields are available.
+The 5 user tiers (`SUPER_ADMIN`, `COMPANY_ADMIN`, `SHOP_MANAGER`, `EMPLOYEE`, `CUSTOMER`) determine which permissions the user holds. The permission strings are imported from `@yellowladder/shared-types` (the same `Permissions` const object the backend uses).
 
-### `CanAction` — Action Buttons
+### `HasPermission` — Gating Any Element
 
-Wraps buttons and interactive elements. Hides the child by default if the user lacks permission. Use `mode="disable"` on submit buttons inside forms (where hiding would break layout).
+Wraps any child element. Hides by default if the user lacks the permission; switch to `mode="disable"` to keep the element visible but inert (useful for submit buttons inside forms where hiding would break layout).
 
 ```tsx
-import { CanAction } from '@yellowladder/shared-web-ui';
+import { HasPermission } from '@yellowladder/shared-web-ui';
+import { Permissions } from '@yellowladder/shared-types';
 
-{/* Hide button if user cannot Create MenuItem */}
-<CanAction action="Create" subject="MenuItem">
+{
+  /* Hide button if user cannot create menu items */
+}
+<HasPermission permission={Permissions.MenuItemsCreate}>
   <Button onClick={handleCreate}>{t('catalog.menuItems.create')}</Button>
-</CanAction>
+</HasPermission>;
 
-{/* Disable submit button instead of hiding (inside a form) */}
-<CanAction action="Update" subject="MenuItem" mode="disable">
+{
+  /* Disable submit button instead of hiding (inside a form) */
+}
+<HasPermission permission={Permissions.MenuItemsUpdate} mode="disable">
   <Button type="submit" variant="contained">
     {t('common.save')}
   </Button>
-</CanAction>
+</HasPermission>;
+
+{
+  /* Multiple permissions (user must hold ALL) */
+}
+<HasPermission permissions={[Permissions.OrdersRead, Permissions.OrdersUpdate]} requireAll>
+  <OrderStatusMenu />
+</HasPermission>;
 ```
 
 **Rules:**
 
-- Every action button (Create, Update, Delete, Confirm, Cancel, etc.) in backoffice must be wrapped in `<CanAction>`.
-- List page "Create" buttons: `<CanAction action="Create" subject="{Entity}">`.
-- List row Edit/Delete buttons: `<CanAction action="Update">`/`<CanAction action="Delete">`.
+- Every action button (Create, Update, Delete, Confirm, Cancel, etc.) in backoffice must be wrapped in `<HasPermission>`.
+- List page "Create" buttons: `<HasPermission permission={Permissions.{Entity}Create}>`.
+- List row Edit/Delete buttons: `<HasPermission permission={Permissions.{Entity}Update}>` / `<HasPermission permission={Permissions.{Entity}Delete}>`.
 - Form submit buttons: use `mode="disable"` to keep them visible but greyed out.
-- Action and subject names match the backend CASL action/resource names exactly (plain verbs: `Create`, `Read`, `Update`, `Delete`).
+- Permission strings come from the shared `Permissions` const — never hardcode `'menu-items:create'`.
+- **Client gating is UX only.** It hides buttons the user cannot use; it never grants access. The backend always re-checks the same permission via `AuthorizationService.requirePermission()`.
 
-### `CanField` — Form Fields
+### Field-Level Gating
 
-Wraps individual form fields. Disables the field if the user's ability does not permit that field for the given action/subject.
+There is no automatic field-level helper. For the rare cases where a field must be disabled per role (e.g., `EMPLOYEE` cannot edit `basePrice`), gate it explicitly:
 
 ```tsx
-import { CanField } from '@yellowladder/shared-web-ui';
+import { useHasPermission } from '@yellowladder/shared-web-ui';
+import { Permissions } from '@yellowladder/shared-types';
 
-<CanField action="Update" subject="MenuItem" field="basePrice">
-  <TextField label={t('catalog.menuItems.basePrice')} value={basePrice} onChange={...} />
-</CanField>
+const canEditPrice = useHasPermission(Permissions.MenuItemsUpdatePrice);
 
-{/* Dynamic action for edit vs create forms */}
-<CanField action={isEdit ? 'Update' : 'Create'} subject="MenuItem" field="nameEn">
-  <TextField {...register('nameEn')} label={t('common.name')} fullWidth />
-</CanField>
+<TextField
+  label={t('catalog.menuItems.basePrice')}
+  disabled={!canEditPrice}
+  {...register('basePrice')}
+/>;
 ```
 
-**Rules:**
+For forms that serve both create and edit, compute the permission once at the top of the component:
 
-- Every form field in backoffice forms must be wrapped in `<CanField>`.
-- `field` prop matches the backend DTO field name (what CASL's `ensureFieldsPermitted` checks).
-- For forms that serve both create and edit, use `action={isEdit ? 'Update' : 'Create'}`.
+```tsx
+const requiredPermission = isEdit ? Permissions.MenuItemsUpdate : Permissions.MenuItemsCreate;
+const canSubmit = useHasPermission(requiredPermission);
+```
 
 ### Import Pattern
 
 ```tsx
-import { CanAction, CanField } from '@yellowladder/shared-web-ui';
+import { HasPermission, useHasPermission } from '@yellowladder/shared-web-ui';
+import { Permissions } from '@yellowladder/shared-types';
 ```
 
 ## Realtime (Kitchen WebSocket)
@@ -177,9 +194,15 @@ socket.on('connect', () => {
   socket.emit('subscribe', { shopId });
 });
 
-socket.on('order:new', (order) => { /* ... */ });
-socket.on('order:update', (order) => { /* ... */ });
-socket.on('snapshot', (orders) => { /* ... */ });  // 15s tick fallback
+socket.on('order:new', (order) => {
+  /* ... */
+});
+socket.on('order:update', (order) => {
+  /* ... */
+});
+socket.on('snapshot', (orders) => {
+  /* ... */
+}); // 15s tick fallback
 ```
 
 The WebSocket client lives in a hook in `web-ordering` and dispatches updates into a Redux slice in `shared/store`.
@@ -200,7 +223,7 @@ The WebSocket client lives in a hook in `web-ordering` and dispatches updates in
 - Interactive elements (buttons, links, icon buttons) must have accessible names. Icon-only buttons use `aria-label`.
 - Color contrast must meet WCAG 2.1 AA (4.5:1 for normal text, 3:1 for large text).
 - Focus management: dialogs and drawers must trap focus. MUI `Dialog` and `Drawer` handle this automatically.
-- RTL: MUI's RTL theme configuration handles layout mirroring. Verify custom `sx` styles use logical properties.
+- Yellow Ladder is **LTR only** (supports `en`, `de`, `fr`). Do not add RTL configuration, `dir="rtl"`, or `stylis-plugin-rtl`.
 
 ## API Versioning
 

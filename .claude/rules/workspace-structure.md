@@ -18,7 +18,7 @@ yellowladder/
         authentication/               # JWT, Passport.js, refresh tokens, OTP, AuthenticationGuard
         users/                        # User CRUD, profiles, passwords
         companies/                    # Company CRUD + 4 config enum tables (business-types, payment-methods, company-info-*) as sibling files
-        authorization/                # CASL AbilityFactory, AuthorizationService, 5 fixed roles
+        authorization/                # RolePermissionRegistry, AuthorizationService, RolesGuard, @RequirePermission, 5 fixed roles
         audit/                        # Append-only audit trail (@AuditLog decorator + service)
 
       catalog/                        # Domain: Catalog (tiered: company-level + shop overrides; includes Shop)
@@ -79,45 +79,45 @@ yellowladder/
     shared/                           # Grouping folder (NOT a lib)
       types/                          # TypeScript interfaces (API contracts, single source of truth)
       utils/                          # Currency (GBP default), date/timezone, phone validation, slugs
-      web-ui/                         # MUI 7 theme + RTL config, ThemeProvider setup, composite components
+      web-ui/                         # MUI 7 theme (LTR only), ThemeProvider setup, composite components
       mobile-ui/                      # React Native Paper theme + PaperProvider, composite components
-      i18n/                           # react-i18next config, en.json, ar.json, ICU plurals
+      i18n/                           # react-i18next config, en.json, de.json, fr.json, ICU plurals
       api/                            # RTK Query API slices per domain (web + mobile share)
       store/                          # Redux client-state slices (web + mobile share)
 ```
 
 ## Lib Counts
 
-| Group                                                | Count        |
-| ---------------------------------------------------- | ------------ |
-| Backend — domain sub-module libs (6 domains)         | 21           |
-| Backend — infra (cross-cutting libs)                 | 12           |
-| Web (6 domain libs)                                  | 6            |
-| Mobile (5 domain libs)                               | 5            |
-| Shared                                               | 7            |
-| **Total libs**                                       | **51**       |
+| Group                                        | Count  |
+| -------------------------------------------- | ------ |
+| Backend — domain sub-module libs (6 domains) | 21     |
+| Backend — infra (cross-cutting libs)         | 12     |
+| Web (6 domain libs)                          | 6      |
+| Mobile (5 domain libs)                       | 5      |
+| Shared                                       | 7      |
+| **Total libs**                               | **51** |
 
 ### Backend sub-module breakdown
 
-| Domain         | Sub-modules                                                                                                 | Count |
-| -------------- | ----------------------------------------------------------------------------------------------------------- | ----- |
-| Identity       | authentication, users, companies, authorization, audit                                                      | 5     |
-| Catalog        | categories, menu-items, menu-addons, shops, item-purchase-counts                                            | 5     |
-| Ordering       | carts, orders, kitchen                                                                                      | 3     |
-| Payment        | stripe-accounts, terminal, webhooks                                                                         | 3     |
-| Operations     | discounts, waste                                                                                            | 2     |
-| Integrations   | accounting, notifications, email                                                                            | 3     |
-| **Total**      |                                                                                                             | **21**|
+| Domain       | Sub-modules                                                      | Count  |
+| ------------ | ---------------------------------------------------------------- | ------ |
+| Identity     | authentication, users, companies, authorization, audit           | 5      |
+| Catalog      | categories, menu-items, menu-addons, shops, item-purchase-counts | 5      |
+| Ordering     | carts, orders, kitchen                                           | 3      |
+| Payment      | stripe-accounts, terminal, webhooks                              | 3      |
+| Operations   | discounts, waste                                                 | 2      |
+| Integrations | accounting, notifications, email                                 | 3      |
+| **Total**    |                                                                  | **21** |
 
 ## Naming Conventions
 
-| Pattern                        | Example                  | Usage                         |
-| ------------------------------ | ------------------------ | ----------------------------- |
+| Pattern                        | Example                      | Usage                         |
+| ------------------------------ | ---------------------------- | ----------------------------- |
 | `backend-{domain}-{submodule}` | `backend-catalog-menu-items` | Backend domain sub-module lib |
-| `backend-infra-{purpose}`      | `backend-infra-database` | Backend infrastructure lib    |
-| `web-{domain}`                 | `web-catalog`            | Web feature lib               |
-| `mobile-{domain}`              | `mobile-ordering`        | Mobile feature lib            |
-| `shared-{purpose}`             | `shared-types`           | Cross-cutting shared lib      |
+| `backend-infra-{purpose}`      | `backend-infra-database`     | Backend infrastructure lib    |
+| `web-{domain}`                 | `web-catalog`                | Web feature lib               |
+| `mobile-{domain}`              | `mobile-ordering`            | Mobile feature lib            |
+| `shared-{purpose}`             | `shared-types`               | Cross-cutting shared lib      |
 
 ## Import Path Aliases
 
@@ -129,29 +129,29 @@ The aliases are declared in `tsconfig.base.json` and kept **sorted alphabeticall
 
 Every project gets tags for `type`, `platform`, and (backend libs only) `domain`.
 
-| Tag                    | Applied To                                                                              |
-| ---------------------- | --------------------------------------------------------------------------------------- |
-| `type:app`             | All apps (`core-service`, `web-backoffice`, `mobile-backoffice`)                        |
-| `type:backend`         | All backend domain sub-module libs                                                       |
-| `type:infra`           | All `backend/infra/*` libs                                                              |
-| `type:web`             | All web libs                                                                            |
-| `type:mobile`          | All mobile libs                                                                         |
-| `type:data-access`     | `shared/api`, `shared/store`                                                            |
-| `type:web-ui`          | `shared/web-ui`                                                                         |
-| `type:mobile-ui`       | `shared/mobile-ui`                                                                      |
-| `type:types`           | `shared/types`                                                                          |
-| `type:util`            | `shared/utils`                                                                          |
-| `type:i18n`            | `shared/i18n`                                                                           |
-| `platform:server`      | `apps/core-service`, all backend libs, all infra libs                                   |
-| `platform:web`         | `apps/web-backoffice`, all web libs, `shared/web-ui`                                    |
-| `platform:mobile`      | `apps/mobile-backoffice`, all mobile libs, `shared/mobile-ui`                           |
-| `platform:any`         | `shared/types`, `shared/utils`, `shared/i18n`, `shared/api`, `shared/store`             |
-| `domain:identity`      | All `backend/identity/*` libs                                                           |
-| `domain:catalog`       | All `backend/catalog/*` libs                                                            |
-| `domain:ordering`      | All `backend/ordering/*` libs                                                           |
-| `domain:payment`       | All `backend/payment/*` libs                                                            |
-| `domain:operations`    | All `backend/operations/*` libs                                                         |
-| `domain:integrations`  | All `backend/integrations/*` libs                                                       |
+| Tag                   | Applied To                                                                  |
+| --------------------- | --------------------------------------------------------------------------- |
+| `type:app`            | All apps (`core-service`, `web-backoffice`, `mobile-backoffice`)            |
+| `type:backend`        | All backend domain sub-module libs                                          |
+| `type:infra`          | All `backend/infra/*` libs                                                  |
+| `type:web`            | All web libs                                                                |
+| `type:mobile`         | All mobile libs                                                             |
+| `type:data-access`    | `shared/api`, `shared/store`                                                |
+| `type:web-ui`         | `shared/web-ui`                                                             |
+| `type:mobile-ui`      | `shared/mobile-ui`                                                          |
+| `type:types`          | `shared/types`                                                              |
+| `type:util`           | `shared/utils`                                                              |
+| `type:i18n`           | `shared/i18n`                                                               |
+| `platform:server`     | `apps/core-service`, all backend libs, all infra libs                       |
+| `platform:web`        | `apps/web-backoffice`, all web libs, `shared/web-ui`                        |
+| `platform:mobile`     | `apps/mobile-backoffice`, all mobile libs, `shared/mobile-ui`               |
+| `platform:any`        | `shared/types`, `shared/utils`, `shared/i18n`, `shared/api`, `shared/store` |
+| `domain:identity`     | All `backend/identity/*` libs                                               |
+| `domain:catalog`      | All `backend/catalog/*` libs                                                |
+| `domain:ordering`     | All `backend/ordering/*` libs                                               |
+| `domain:payment`      | All `backend/payment/*` libs                                                |
+| `domain:operations`   | All `backend/operations/*` libs                                             |
+| `domain:integrations` | All `backend/integrations/*` libs                                           |
 
 ## Module Boundary Constraints
 

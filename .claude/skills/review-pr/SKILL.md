@@ -13,6 +13,7 @@ Review a pull request using the Yellow Ladder code-reviewer checklist. Outputs s
 **Owner:** `code-reviewer` agent (advisory; the engineer who wrote the code does the fixes).
 
 **Argument:**
+
 - `$1` — PR number (e.g., `42`) or branch name (e.g., `feat/YL-123/menu-modifiers`)
 
 ## Pre-flight checks
@@ -24,6 +25,7 @@ Review a pull request using the Yellow Ladder code-reviewer checklist. Outputs s
 ## Steps
 
 1. **Fetch PR diff and details:**
+
    ```bash
    gh pr diff $1
    gh pr view $1
@@ -46,17 +48,20 @@ Review a pull request using the Yellow Ladder code-reviewer checklist. Outputs s
    - Multi-tenant tables have `companyId` and (if applicable) `shopId`
    - RLS policies in place for new multi-tenant tables
    - No manual `companyId` filtering in services
-   - Shop scoping via `shopId IN user.shopIds` or base service helper
-   - `SystemPrismaService` (if used) is gated by CASL `SUPER_ADMIN` check
-   - No `$queryRawUnsafe` with user input
+   - Shop scoping via explicit `scopeWhereToUserShops(user, where)` (read paths) or `assertShopAccess(user, shopId)` (write paths)
+   - `SystemPrismaService` (if used) is gated by `requirePermission(user, Permissions.PlatformManage)` (or equivalent SUPER_ADMIN permission) at the top of every consuming method
+   - No raw unsafe query helpers with user input
 
-   ### 3. Authorization (CASL)
+   ### 3. Authorization (RBAC)
    - Authorization in services, not controllers
-   - 5-method CASL flow followed (`requirePermission` → `ensureFieldsPermitted` → ...)
-   - `@CurrentAbility()` passed to service from controller
-   - Action names are plain verbs (`Create`, `Read`, `Update`, `Delete`) — not `Manage` or `View`
-   - `pickPermittedFields` called on every read return value
-   - `ensureFieldsPermitted` called on every write input
+   - 4-step RBAC service flow followed: `requirePermission(user, Permissions.XxxYyy)` → `scopeWhereToUserShops(user, where)` or `assertShopAccess(user, shopId)` → repository → return
+   - Every service method takes `user: AuthenticatedUser` as its first parameter (never `ability`)
+   - `@CurrentUser()` (not the legacy `@CurrentAbility()`) passes the user from controller → service
+   - Optional early rejection via `@RequirePermission(Permissions.XxxYyy)` on controller methods is backed by the global `RolesGuard`; the service still calls `requirePermission` itself
+   - Every new endpoint has a permission constant in `libs/shared/types/src/auth/permissions.constants.ts` and is wired to the appropriate role(s) in `RolePermissionRegistry`
+   - Permissions are `{resource}:{action}` strings in the `Permissions` `as const` object (no TypeScript `enum`)
+   - No service calls the removed CASL-era APIs (`AppAbility`, `accessibleBy`, `mergeConditionsIntoWhere`, `ensureFieldsPermitted`, `pickPermittedFields`, `ensureConditionsMet`, `AbilityFactory`)
+   - Field-level restrictions are expressed as explicit per-role code in the service (e.g., `if (user.role === Role.EMPLOYEE) delete input.basePrice;`)
 
    ### 4. Security
    - **No hardcoded OTP `886644`** — BLOCKER on sight (Constraint 12)
@@ -83,9 +88,9 @@ Review a pull request using the Yellow Ladder code-reviewer checklist. Outputs s
    - RTK Query hooks (no raw `fetch`)
    - React Hook Form + Zod for forms
    - MUI components only (no Tailwind, no styled-components)
-   - `<CanAction>` / `<CanField>` for authorization UI
+   - `<HasPermission permission={Permissions.XxxYyy}>` or `useHasPermission(Permissions.XxxYyy)` from `@yellowladder/shared-web-ui` for authorization UI (no references to the removed CASL-era `<CanAction>` / `<CanField>` / `useAbilitySync`)
    - Locale-prefixed routes
-   - Access token in memory (not localStorage)
+   - Access token in memory (not browser persistent storage)
 
    ### 7. Mobile conventions (React Native)
    - Function components, named exports (navigators may default-export when framework requires)
@@ -146,25 +151,31 @@ Review a pull request using the Yellow Ladder code-reviewer checklist. Outputs s
    ## BLOCKER
 
    ### 1. {Title}
+
    - **File:** `{path}:{line}`
    - **Issue:** {description}
    - **Constraint:** {hard constraint number from architecture.md}
    - **Suggested fix:** {minimal prose change — never code}
 
    ## MAJOR
+
    ...
 
    ## MINOR
+
    ...
 
    ## NOTE
+
    ...
 
    ## Summary
+
    {1-paragraph verdict, escalation notes for architect/database-engineer if needed}
    ```
 
    If there are no findings:
+
    ```markdown
    # Code Review: PR #${1}
 
@@ -185,6 +196,7 @@ Review a pull request using the Yellow Ladder code-reviewer checklist. Outputs s
 ## Hand-off
 
 After the review:
+
 - BLOCKER findings → notify the engineer who wrote the code (`backend-engineer`, `web-engineer`, `mobile-engineer`)
 - Schema-level findings → hand off to `database-engineer`
 - Architectural concerns → escalate to `architect`

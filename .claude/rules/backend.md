@@ -1,5 +1,5 @@
 ---
-description: Backend NestJS conventions — file naming, modules, controllers, DTOs, repositories, domain events, CASL, multi-tenancy, Prisma
+description: Backend NestJS conventions — file naming, modules, controllers, DTOs, repositories, domain events, RBAC, multi-tenancy, Prisma
 alwaysApply: false
 paths:
   - 'libs/backend/**'
@@ -12,21 +12,21 @@ paths:
 
 All files use `kebab-case.{suffix}.ts`:
 
-| File Type      | Suffix              | Example                          |
-| -------------- | ------------------- | -------------------------------- |
-| Module         | `.module.ts`        | `menu-items.module.ts`           |
-| Controller     | `.controller.ts`    | `menu-items.controller.ts`       |
-| Service        | `.service.ts`       | `menu-items.service.ts`          |
-| Repository     | `.repository.ts`    | `menu-items.repository.ts`       |
-| Event handler  | `.handler.ts`       | `payment-completed.handler.ts`   |
-| Field registry | `-field-registry.ts`| `menu-items-field-registry.ts`   |
-| DTO            | `.dto.ts`           | `create-menu-item.dto.ts`        |
-| Domain event   | `.event.ts`         | `order-confirmed.event.ts`       |
-| Guard          | `.guard.ts`         | `authentication.guard.ts`        |
-| Middleware     | `.middleware.ts`    | `tenant-context.middleware.ts`   |
-| Interceptor    | `.interceptor.ts`   | `audit-log.interceptor.ts`       |
-| Decorator      | `.decorator.ts`     | `current-ability.decorator.ts`   |
-| Gateway        | `.gateway.ts`       | `kitchen.gateway.ts`             |
+| File Type      | Suffix               | Example                        |
+| -------------- | -------------------- | ------------------------------ |
+| Module         | `.module.ts`         | `menu-items.module.ts`         |
+| Controller     | `.controller.ts`     | `menu-items.controller.ts`     |
+| Service        | `.service.ts`        | `menu-items.service.ts`        |
+| Repository     | `.repository.ts`     | `menu-items.repository.ts`     |
+| Event handler  | `.handler.ts`        | `payment-completed.handler.ts` |
+| Field registry | `-field-registry.ts` | `menu-items-field-registry.ts` |
+| DTO            | `.dto.ts`            | `create-menu-item.dto.ts`      |
+| Domain event   | `.event.ts`          | `order-confirmed.event.ts`     |
+| Guard          | `.guard.ts`          | `authentication.guard.ts`      |
+| Middleware     | `.middleware.ts`     | `tenant-context.middleware.ts` |
+| Interceptor    | `.interceptor.ts`    | `audit-log.interceptor.ts`     |
+| Decorator      | `.decorator.ts`      | `current-user.decorator.ts`    |
+| Gateway        | `.gateway.ts`        | `kitchen.gateway.ts`           |
 
 ## Testing
 
@@ -108,14 +108,15 @@ export class MenuItemsController {
 
   @Post()
   @ApiMenuItems('createOne')
+  @RequirePermission(Permissions.MenuItemsCreate)
   @AuditLog({ action: 'Create', resource: 'MenuItem' })
   async createOne(
-    @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: AuthenticatedUser,
     @CurrentCompany() companyId: string,
     @Body() dto: CreateMenuItemDto,
   ): Promise<GetMenuItemDto> {
     const menuItem = await this.menuItemsService.createOne(
-      ability,
+      user,
       companyId,
       CreateMenuItemDto.toInput(dto),
     );
@@ -124,34 +125,36 @@ export class MenuItemsController {
 
   @Get()
   @ApiMenuItems('getMany')
+  @RequirePermission(Permissions.MenuItemsRead)
   async getMany(
-    @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: AuthenticatedUser,
     @Query() query: GetMenuItemsQueryDto,
   ): Promise<PaginatedResponse<GetMenuItemDto>> {
-    const { data, meta } = await this.menuItemsService.getMany(ability, query);
+    const { data, meta } = await this.menuItemsService.getMany(user, query);
     return { data: data.map((item) => GetMenuItemDto.toDto(item)), meta };
   }
 
   @Get(':id')
   @ApiMenuItems('getOneById')
+  @RequirePermission(Permissions.MenuItemsRead)
   async getOneById(
-    @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<GetMenuItemDto> {
-    const menuItem = await this.menuItemsService.getOne(ability, { id });
+    const menuItem = await this.menuItemsService.getOne(user, { id });
     return GetMenuItemDto.toDto(menuItem);
   }
 }
 ```
 
-- `@CurrentAbility()` is passed to every service method for authorization.
-- `@CurrentCompany()` extracts `companyId` from the JWT (set by `TenantContextMiddleware`).
-- `@CurrentUser()` is only passed when the service needs user identity for business logic (e.g., `createdBy`, `assignedTo`), NOT for authorization scoping — CASL handles that.
+- `@CurrentUser()` is passed to every service method. It carries `{ userId, companyId, role, shopIds }` from the JWT — everything the service needs for authorization and auditing.
+- `@CurrentCompany()` extracts `companyId` from the JWT (set by `TenantContextMiddleware`). It is equivalent to `user.companyId`; keep it for clarity when the service takes `companyId` as a separate argument for insert payloads.
+- `@RequirePermission(...)` is an **optional convenience**: it works with a global `RolesGuard` to reject obviously unauthorized HTTP calls early. Services MUST still call `AuthorizationService.requirePermission(user, permission)` internally, because the guard is skipped for non-HTTP entry points (event handlers, scheduled jobs).
 - `@AuditLog()` is a declarative decorator on write endpoints.
 - `ParseUUIDPipe` on all `:id` route params for input validation.
 - Controllers call `CreateMenuItemDto.toInput(dto)` to convert request DTOs to named repository input types.
 - Controllers call `GetMenuItemDto.toDto(entity)` to convert service return values to response DTOs.
-- Service methods accept `where: Record<string, unknown>` (not bare `id: string`), so controllers pass `{ id }` objects to enable CASL `mergeConditionsIntoWhere`.
+- Service methods accept `where: Prisma.{Entity}WhereInput` (not bare `id: string`), so controllers pass `{ id }` objects. The service then extends this WHERE with `AuthorizationService.scopeWhereToUserShops(user, where)` when the entity is shop-scoped.
 
 ## Swagger Decorators
 
@@ -195,25 +198,84 @@ Controller ──toInput()──> Service ──────────> Reposi
               input type)    input type)          types)
 
 Repository ──> Service ──────────> Controller ──toDto()──> HTTP Response
-  (Prisma      (entity or          (GetMenuItemDto)
-   entity)      Record<string, unknown>
-                from pickPermittedFields)
+  (Prisma      (Prisma entity)     (GetMenuItemDto)
+   entity)
 ```
 
-| Boundary             | Input                                                       | Output                                                 |
-| -------------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
-| Controller → Service | Named repo type (e.g., `CreateMenuItemInput` via `toInput()`) | `Record<string, unknown>` (from `pickPermittedFields`) |
-| Service → Repository | Named repo type (e.g., `CreateMenuItemInput`)               | Prisma entity                                          |
-| Controller → HTTP    | —                                                           | `GetMenuItemDto` (via `toDto()`)                       |
+| Boundary             | Input                                                         | Output                           |
+| -------------------- | ------------------------------------------------------------- | -------------------------------- |
+| Controller → Service | Named repo type (e.g., `CreateMenuItemInput` via `toInput()`) | Prisma entity                    |
+| Service → Repository | Named repo type (e.g., `CreateMenuItemInput`)                 | Prisma entity                    |
+| Controller → HTTP    | —                                                             | `GetMenuItemDto` (via `toDto()`) |
+
+Field-level redaction (hiding attributes from lower-privilege roles) is explicit in the service: delete the fields on the returned entity before handing it to the controller, using a small `if (user.role === Role.X)` branch or a dedicated helper. There is no automatic filtering.
+
+## Client-Generated UUIDs and Idempotency
+
+Yellow Ladder is **online-only today**, but two cheap conventions are baked in from day one so a future offline-mode retrofit stays cheap (and so the UX is more resilient on flaky networks right now). These are not offline code — they're just how writes are shaped.
+
+### Client-Generated UUIDs for User-Created Entities
+
+The following entities use **client-generated UUIDs** instead of server-generated ones: `Cart`, `CartItem`, `CartItemOption`, `Order`, `OrderItem`, `OrderItemOption`, `Waste`.
+
+- The client (mobile) generates the UUID via `crypto.randomUUID()` (on React Native, install `react-native-get-random-values` and import it once at app root so `crypto.randomUUID()` works) and sends it in the create payload.
+- The create DTO adds an `id: string` field validated with `@IsUUID()`.
+- The named repository input type includes `id`.
+- The Prisma model keeps `id String @id @default(uuid()) @db.Uuid` — the `@default(uuid())` stays as a safety net for server-only writes (seed scripts, domain event handlers), but the normal HTTP create path passes the client's UUID.
+
+**Why:** the client can reference the entity by its final permanent ID the moment it's created — useful for multi-cart switching, receipt printing, kitchen-display cross-references, and (if offline mode is ever added) trivial sync-queue replay with no local-ID-to-real-ID remapping.
+
+**NOT in scope** (these stay server-generated):
+
+- Config enum tables: `BusinessType`, `PaymentMethod`, company-info lookups
+- `User`, `Company`, `Shop`
+- `MenuItem`, `Category`, `MenuAddon`, `MenuAddonOption` (admin-managed, not end-user-created)
+- `ShopCategory`, `ShopMenuItem`, `ShopMenuAddon`, `ShopMenuAddonOption` (admin-managed shop overrides)
+- `ShopDiscount`, `ShopDiscountMenuItem` (admin-managed)
+- `CompanyPaymentProviderAccount`, `CompanyAccountingConnection`, `PlatformAccountingConnection`
+- `LogEvent`, `OrderSyncLog`, `StripeWebhookEvent`, `UserDeviceInfo` (system-generated)
+- `UserShopKitchenSettings`, `UserShopItemOrder`, `ItemPurchaseCount` (system-managed)
+
+### Idempotency-Key on Mutation Endpoints
+
+All `POST` endpoints for the user-created entities listed above accept an `Idempotency-Key` HTTP header. The client passes the entity's UUID as the key — they're the same value, no separate key generation.
+
+- The backend dedupes duplicate requests so that the same key arriving twice does NOT create a duplicate. The second request returns the original response.
+- **Dedupe strategy (primary):** rely on the Prisma unique constraint on `id`. Catch `Prisma.PrismaClientKnownRequestError` with code `P2002` in the service and return the existing entity via `repository.findOneOrThrow({ id: input.id })`.
+- **Dedupe strategy (fallback, for future endpoints that accept Idempotency-Key without client UUIDs):** a small `IdempotencyKey` model + helper lives in `libs/backend/infra/database` with `(user_id, key)` unique and a 24-hour TTL.
+
+**Why this is worth it even today (online-only):**
+
+- Protects against double-taps on the POS, retried requests on network hiccups, and React Native's "request timeout but server actually succeeded" scenarios — all common during a busy shift
+- ~5 lines per create method (one try/catch + one re-fetch), zero new infra to adopt
+- Unblocks a cheap offline retrofit later — the sync-queue retry becomes "just resend", not a custom dedupe layer
+
+**Example service create flow for a client-UUID entity:**
+
+```typescript
+async createOne(user: AuthenticatedUser, input: CreateOrderInput) {
+  this.authorizationService.requirePermission(user, Permissions.OrdersCreate);
+  this.authorizationService.assertShopAccess(user, input.shopId);
+  try {
+    return await this.repository.createOne(input);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      // Idempotent retry — the client sent the same UUID twice. Return the existing entity.
+      return this.repository.findOneOrThrow({ id: input.id });
+    }
+    throw error;
+  }
+}
+```
 
 ## DTO Naming
 
-| Concern        | `shared/types` Interface  | Backend DTO Class       |
-| -------------- | ------------------------- | ----------------------- |
-| Create request | `CreateMenuItemRequest`   | `CreateMenuItemDto`     |
-| Update request | `UpdateMenuItemRequest`   | `UpdateMenuItemDto`     |
-| Response       | `GetMenuItemResponse`     | `GetMenuItemDto`        |
-| Query params   | —                         | `GetMenuItemsQueryDto`  |
+| Concern        | `shared/types` Interface | Backend DTO Class      |
+| -------------- | ------------------------ | ---------------------- |
+| Create request | `CreateMenuItemRequest`  | `CreateMenuItemDto`    |
+| Update request | `UpdateMenuItemRequest`  | `UpdateMenuItemDto`    |
+| Response       | `GetMenuItemResponse`    | `GetMenuItemDto`       |
+| Query params   | —                        | `GetMenuItemsQueryDto` |
 
 ## Request DTOs (class-validator)
 
@@ -226,8 +288,6 @@ import { CreateMenuItemRequest } from '@yellowladder/shared-types';
 import type { CreateMenuItemInput } from '../menu-items.repository';
 
 export class CreateMenuItemDto implements CreateMenuItemRequest {
-  [key: string]: unknown; // Required for CASL ensureFieldsPermitted
-
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
@@ -236,7 +296,12 @@ export class CreateMenuItemDto implements CreateMenuItemRequest {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  nameAr: string;
+  nameDe: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  nameFr: string;
 
   @ApiProperty()
   @IsUUID()
@@ -249,7 +314,8 @@ export class CreateMenuItemDto implements CreateMenuItemRequest {
   static toInput(dto: CreateMenuItemDto): CreateMenuItemInput {
     return {
       nameEn: dto.nameEn,
-      nameAr: dto.nameAr,
+      nameDe: dto.nameDe,
+      nameFr: dto.nameFr,
       categoryId: dto.categoryId,
       basePrice: dto.basePrice,
     };
@@ -258,7 +324,6 @@ export class CreateMenuItemDto implements CreateMenuItemRequest {
 ```
 
 - Every request DTO class `implements` its `shared/types` interface.
-- `[key: string]: unknown` index signature required for CASL `ensureFieldsPermitted` to iterate fields.
 - `static toInput()` returns the named repository input type, not raw Prisma types.
 - Use `@ApiProperty()` on every field for Swagger generation.
 - Global `ValidationPipe` handles validation — no manual validation in controllers.
@@ -276,14 +341,16 @@ import { GetMenuItemResponse } from '@yellowladder/shared-types';
 export class GetMenuItemDto implements GetMenuItemResponse {
   @ApiProperty() id: string;
   @ApiProperty() nameEn: string;
-  @ApiProperty() nameAr: string;
+  @ApiProperty() nameDe: string;
+  @ApiProperty() nameFr: string;
   @ApiProperty() basePrice: number;
 
   static toDto(entity: MenuItem): GetMenuItemDto {
     const dto = new GetMenuItemDto();
     dto.id = entity.id;
     dto.nameEn = entity.nameEn;
-    dto.nameAr = entity.nameAr;
+    dto.nameDe = entity.nameDe;
+    dto.nameFr = entity.nameFr;
     dto.basePrice = entity.basePrice;
     return dto;
   }
@@ -302,7 +369,7 @@ Each sub-module has a `*.repository.ts` that wraps Prisma queries. Services neve
 
 **Typed parameters:** All method parameters use Prisma's generated types (`Prisma.MenuItemWhereInput`, `Prisma.MenuItemOrderByWithRelationInput`). Never use `unknown`, `Record<string, unknown>`, or `as never` casts.
 
-**`findOne` accepts WHERE input:** `findOne(where: Prisma.MenuItemWhereInput)` — not `findOne(id: string)`. This enables CASL `mergeConditionsIntoWhere` to pass its full WHERE object through.
+**`findOne` accepts WHERE input:** `findOne(where: Prisma.MenuItemWhereInput)` — not `findOne(id: string)`. This lets the service extend the WHERE with `AuthorizationService.scopeWhereToUserShops(user, where)` before passing it through.
 
 **JSON fields:** Use `Prisma.InputJsonValue` for JSON field types (never `as never`).
 
@@ -411,68 +478,76 @@ async handleOrderConfirmed(payload: OrderConfirmedEvent): Promise<void> {
 - Handlers must be **idempotent**. Replaying the same event must not produce double-counted side effects.
 - Design the publisher interface so that migrating to a message broker later is a transport swap, not a rewrite. **Defer** the migration until a second async use case appears.
 
-## Authorization (CASL — service layer)
+## Authorization (RBAC — service layer)
 
 - Authorization is handled in **services**, not guards. This ensures it runs regardless of entry point (HTTP, events, scheduled jobs, internal calls).
-- Controllers pass the user's `AppAbility` (built by `AbilityFactory` from the user's `role` and `shopIds`) to service methods via `@CurrentAbility()` param decorator.
+- Controllers pass the authenticated user to every service method via `@CurrentUser()`. The `AuthenticatedUser` type is `{ userId, companyId, role, shopIds }` — everything the service needs for authorization and auditing.
 - Services inject `AuthorizationService` from `@yellowladder/backend-identity-authorization` and call:
-  - `requirePermission(ability, action, resource)` — type-level gate
-  - `mergeConditionsIntoWhere(ability, action, resource, baseWhere)` — bakes authorization into Prisma queries via `@casl/prisma`
-  - `ensureFieldsPermitted(ability, input, resource, action)` — field-level write checks
-  - `pickPermittedFields(ability, entity, resource, action)` — field-level read filtering on the Prisma entity before returning to controller
-- Action naming: plain verbs (`Create`, `Read`, `Update`, `Delete`, `Publish`, `View`, `Manage`).
-- When `ability` is `undefined` (system/internal calls), gate methods deny, filtering methods are no-ops.
-- **No `PolicyGuard`, no `@RequirePermission()` decorator.** Use `AuthenticationGuard` for authentication only.
+  - `requirePermission(user, permission)` — throws `ForbiddenException` if the user's role does not include the permission
+  - `hasPermission(user, permission)` — boolean check for conditional logic
+  - `scopeWhereToUserShops(user, baseWhere)` — appends `shopId IN [...]` for shop-bounded roles; no-op for `COMPANY_ADMIN` / `SUPER_ADMIN`
+  - `assertShopAccess(user, shopId)` — throws if the shop is not in `user.shopIds` (for single-shop write paths)
+  - `assertCompanyAccess(user, companyId)` — throws if the user is not attached to the target company (only `SUPER_ADMIN` may cross companies)
+- Permission naming: `{resource}:{action}` strings declared in `libs/shared/types` as an `as const` object (e.g., `Permissions.MenuItemsCreate = 'menu-items:create'`). No TypeScript `enum`.
+- When `user` is `undefined` (system/internal calls triggered by scheduled jobs or replay), the service MUST document the bypass explicitly. Prefer a dedicated `SystemContext` argument over optional user parameters, so internal call-sites do not accidentally skip authorization.
+- **Controller-level `@RequirePermission(...)` + global `RolesGuard` is allowed and encouraged** as an early-rejection convenience. The service layer remains the ultimate authority because non-HTTP entry points (event handlers, scheduled jobs) bypass the guard.
 
-### 5-Method Service Flow
+### 4-Step Service Flow
 
-Every service method that touches data must follow this exact authorization flow. Skipping any step is a bug:
+Every service method that touches data must follow this flow:
 
 ```text
-Create: requirePermission → ensureFieldsPermitted → ensureConditionsMet → repository.create → pickPermittedFields
-Read:   requirePermission → mergeConditionsIntoWhere → repository.find → pickPermittedFields
-Update: requirePermission → mergeConditionsIntoWhere (fetch) → ensureFieldsPermitted → repository.update → pickPermittedFields
-Delete: requirePermission → mergeConditionsIntoWhere (fetch) → repository.delete
+Create: requirePermission → (assertShopAccess if shop-scoped) → repository.create
+Read:   requirePermission → scopeWhereToUserShops → repository.find
+Update: requirePermission → scopeWhereToUserShops (fetch) → (optional: redact fields for low-privilege roles) → repository.update
+Delete: requirePermission → scopeWhereToUserShops (fetch) → repository.delete
 ```
 
 ```typescript
-async createOne(ability: AppAbility | undefined, companyId: string, input: CreateMenuItemInput) {
-  this.authorizationService.requirePermission(ability, 'Create', 'MenuItem');
-  this.authorizationService.ensureFieldsPermitted(ability, input, 'MenuItem', 'Create');
-  this.authorizationService.ensureConditionsMet(ability, { ...input, companyId }, 'MenuItem', 'Create');
+async createOne(user: AuthenticatedUser, companyId: string, input: CreateMenuItemInput) {
+  this.authorizationService.requirePermission(user, Permissions.MenuItemsCreate);
+  // MenuItem is company-level (not shop-scoped), so no shop assertion needed here.
   const menuItem = await this.repository.createOne({ ...input, companyId });
-  return this.authorizationService.pickPermittedFields(ability, menuItem, 'MenuItem', 'Read');
+  return menuItem;
 }
 
-async getMany(ability: AppAbility | undefined, query: GetMenuItemsQueryDto) {
-  this.authorizationService.requirePermission(ability, 'Read', 'MenuItem');
+async getMany(user: AuthenticatedUser, query: GetMenuItemsQueryDto) {
+  this.authorizationService.requirePermission(user, Permissions.MenuItemsRead);
   const baseWhere = buildWhereFromQuery(query);
-  const where = this.authorizationService.mergeConditionsIntoWhere(ability, 'Read', 'MenuItem', baseWhere);
+  // MenuItem itself is company-level, so scopeWhereToUserShops is a no-op.
+  // For shop-scoped entities (ShopMenuItem, Order, Cart, Waste), this adds shopId IN user.shopIds.
+  const where = this.authorizationService.scopeWhereToUserShops(user, baseWhere);
   const { items, total } = await this.repository.findMany(where, query.skip, query.take, query.orderBy);
-  return {
-    data: items.map((i) => this.authorizationService.pickPermittedFields(ability, i, 'MenuItem', 'Read')),
-    meta: { total, take: query.take, skip: query.skip },
-  };
+  return { data: items, meta: { total, take: query.take, skip: query.skip } };
 }
 
-async updateOne(ability: AppAbility | undefined, where: { id: string }, input: UpdateMenuItemInput) {
-  this.authorizationService.requirePermission(ability, 'Update', 'MenuItem');
-  const mergedWhere = this.authorizationService.mergeConditionsIntoWhere(ability, 'Update', 'MenuItem', where);
-  const existing = await this.repository.findOne(mergedWhere);
-  if (!existing) throw new BusinessException(CatalogMenuItemsErrors.MenuItemNotFound, 'Menu item not found', HttpStatus.NOT_FOUND);
-  this.authorizationService.ensureFieldsPermitted(ability, input, 'MenuItem', 'Update');
-  const updated = await this.repository.updateOne(existing.id, input);
-  return this.authorizationService.pickPermittedFields(ability, updated, 'MenuItem', 'Read');
+async updateOne(user: AuthenticatedUser, where: Prisma.MenuItemWhereInput, input: UpdateMenuItemInput) {
+  this.authorizationService.requirePermission(user, Permissions.MenuItemsUpdate);
+  const scopedWhere = this.authorizationService.scopeWhereToUserShops(user, where);
+  const existing = await this.repository.findOne(scopedWhere);
+  if (!existing) {
+    throw new BusinessException(
+      CatalogMenuItemsErrors.MenuItemNotFound,
+      'Menu item not found',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+  // Explicit field-level redaction for lower-privilege roles:
+  if (user.role === Role.EMPLOYEE) {
+    delete (input as Partial<UpdateMenuItemInput>).basePrice;
+  }
+  return this.repository.updateOne(existing.id, input);
 }
 ```
 
 **Common violations to avoid:**
 
-- Using `'Manage'` as an action instead of specific verbs (`Create`, `Read`, `Update`, `Delete`). `Manage` is a policy-level wildcard, not a service-level action.
-- Forgetting `pickPermittedFields` on the return value — leaks fields the user shouldn't see.
-- Forgetting `ensureFieldsPermitted` on write inputs — allows writing to restricted fields.
-- Calling `mergeConditionsIntoWhere` with the wrong action.
-- Skipping the shop scoping check for shop-scoped entities. Use the base service helper or include `shopId IN user.shopIds` in the WHERE.
+- Forgetting `requirePermission` — an endpoint is reachable by every authenticated user.
+- Forgetting `scopeWhereToUserShops` for shop-scoped reads — `SHOP_MANAGER` can see other shops' data.
+- Forgetting `assertShopAccess` on single-shop write paths — `SHOP_MANAGER` can write outside their shops.
+- Using `manage` as a permission action instead of specific verbs (`create`, `read`, `update`, `delete`). Keep `manage` for rare umbrella permissions; prefer specific verbs.
+- Passing `companyId` from client input without calling `assertCompanyAccess(user, companyId)` — cross-tenant write.
+- Forgetting the `@RequirePermission(...)` decorator on controllers (not a bug by itself because the service layer catches it, but it delays the rejection and wastes work).
 
 ## Pagination
 
@@ -518,23 +593,32 @@ Backoffice write operations use the `@AuditLog()` decorator for declarative audi
 
 ```typescript
 @Post()
+@RequirePermission(Permissions.MenuItemsCreate)
 @AuditLog({ action: 'Create', resource: 'MenuItem' })
-async createOne(@CurrentAbility() ability: AppAbility, @Body() dto: CreateMenuItemDto): Promise<GetMenuItemDto> {
-  const item = await this.menuItemsService.createOne(ability, CreateMenuItemDto.toInput(dto));
+async createOne(
+  @CurrentUser() user: AuthenticatedUser,
+  @Body() dto: CreateMenuItemDto,
+): Promise<GetMenuItemDto> {
+  const item = await this.menuItemsService.createOne(user, user.companyId, CreateMenuItemDto.toInput(dto));
   return GetMenuItemDto.toDto(item);
 }
 
 @Patch(':id')
+@RequirePermission(Permissions.MenuItemsUpdate)
 @AuditLog({ action: 'Update', resource: 'MenuItem', captureDifferences: true, entityIdParam: 'id' })
-async updateOneById(@CurrentAbility() ability: AppAbility, @Param('id') id: string, @Body() dto: UpdateMenuItemDto): Promise<GetMenuItemDto> {
-  const item = await this.menuItemsService.updateOne(ability, { id }, UpdateMenuItemDto.toInput(dto));
+async updateOneById(
+  @CurrentUser() user: AuthenticatedUser,
+  @Param('id') id: string,
+  @Body() dto: UpdateMenuItemDto,
+): Promise<GetMenuItemDto> {
+  const item = await this.menuItemsService.updateOne(user, { id }, UpdateMenuItemDto.toInput(dto));
   return GetMenuItemDto.toDto(item);
 }
 ```
 
 - Implemented as a NestJS interceptor that reads `@AuditLog()` metadata.
 - The interceptor extracts user and company from the request context — services do not need to pass user for audit purposes.
-- Action strings align with CASL action naming (plain verbs).
+- Action strings on `@AuditLog` are plain verbs (`Create`, `Read`, `Update`, `Delete`) for human-readable logs and line up with the verb portion of the RBAC permission string.
 - Lives in `backend-identity-audit`. Other sub-modules import the decorator only.
 - Sensitive fields (`passwordHash`, refresh tokens, OTP codes) are stripped from diffs via `globalExcludeFields`.
 
@@ -544,7 +628,7 @@ async updateOneById(@CurrentAbility() ability: AppAbility, @Param('id') id: stri
 - `AuthenticationGuard` is a global `APP_GUARD` — all routes require authentication by default. Use `@Public()` to skip (no public endpoints today).
 - Interceptors for response transformation (pagination envelope).
 - Environment variables via NestJS `ConfigModule`. **Never read `process.env` directly.**
-- Tenant context set via `TenantContextMiddleware` at request start. Services do NOT manually filter by `company_id` — RLS handles it. Services DO filter by `shop_id` via CASL `mergeConditionsIntoWhere`.
+- Tenant context set via `TenantContextMiddleware` at request start. Services do NOT manually filter by `company_id` — RLS handles it. Services DO filter by `shop_id` via `AuthorizationService.scopeWhereToUserShops(user, where)`.
 - WebSocket gateways use `WsJwtGuard` for socket authentication. Rooms named `kitchen:shop:{shopId}`.
 
 ## Database Conventions (Prisma)
@@ -612,5 +696,5 @@ libs/backend/infra/database/src/prisma/schema/
 ### Access Pattern
 
 - The default `PrismaService` connects as `app_tenant`. Tenant context is set automatically by the Proxy from `TenantContextStore`.
-- For `SUPER_ADMIN` operations that bypass RLS (when introduced), use `SystemPrismaService` — it must only be injected in services where `AuthorizationService.requirePermission()` verifies `SUPER_ADMIN` ability.
+- For `SUPER_ADMIN` operations that bypass RLS (when introduced), use `SystemPrismaService` — it must only be injected in services where `AuthorizationService.requirePermission()` first verifies a `SUPER_ADMIN`-gated permission.
 - **Never use `$queryRawUnsafe` with user input.**

@@ -5,17 +5,18 @@
 // Key conventions demonstrated:
 // 1. Controller is thin — delegates all logic to service
 // 2. AuthenticationGuard is global (APP_GUARD) — all routes require auth by default
-// 3. @CurrentAbility() passed to service — authorization happens in service layer (CASL)
-// 4. @CurrentCompany() extracts companyId from JWT (set by TenantContextMiddleware)
-// 5. @AuditLog() on all write endpoints with correct action + resource
-// 6. Controller calls CreateMenuItemDto.toInput(dto) before passing to service
-// 7. Controller calls GetMenuItemDto.toDto(entity) on service return values
-// 8. List endpoints return PaginatedResponse<T>
-// 9. ParseUUIDPipe on all :id route params for input validation
-// 10. Service receives `{ id }` object (not bare string) for CASL mergeConditionsIntoWhere
-// 11. Swagger decorators extracted to a separate *.swagger.ts file (ApiMenuItems pattern)
-// 12. #region blocks to group primary CRUD, override entity ops, and secondary entities
-// 13. All routes versioned at /api/v1/ via global prefix in main.ts
+// 3. @CurrentUser() passed to service — RBAC authorization happens in the service layer
+// 4. AuthenticatedUser type carries { userId, companyId, role, shopIds } — extracted from JWT
+// 5. Optional @RequirePermission(Permissions.XxxYyy) decorator for early rejection before the handler runs
+// 6. @AuditLog() on all write endpoints with correct action + resource
+// 7. Controller calls CreateMenuItemDto.toInput(dto) before passing to service
+// 8. Controller calls GetMenuItemDto.toDto(entity) on service return values
+// 9. List endpoints return PaginatedResponse<T>
+// 10. ParseUUIDPipe on all :id route params for input validation
+// 11. Service receives `{ id }` object (not bare string) so scopeWhereToUserShops can append shop filter
+// 12. Swagger decorators extracted to a separate *.swagger.ts file (ApiMenuItems pattern)
+// 13. #region blocks to group primary CRUD and secondary operations
+// 14. All routes versioned at /api/v1/ via global prefix in main.ts
 
 import {
   Body,
@@ -31,9 +32,9 @@ import {
   Query,
 } from '@nestjs/common';
 import { AuditLog } from '@yellowladder/backend-identity-audit';
-import { AppAbility, CurrentAbility } from '@yellowladder/backend-identity-authorization';
-import { CurrentCompany } from '@yellowladder/backend-infra-database';
+import { CurrentUser, RequirePermission } from '@yellowladder/backend-identity-authorization';
 import type { PaginatedResponse } from '@yellowladder/shared-types';
+import { AuthenticatedUser, Permissions } from '@yellowladder/shared-types';
 import { CreateMenuItemDto } from './dtos/create-menu-item.dto';
 import { GetMenuItemDto } from './dtos/get-menu-item.dto';
 import { GetMenuItemsQueryDto } from './dtos/get-menu-items-query.dto';
@@ -55,29 +56,29 @@ export class MenuItemsController {
 
   //#region --- Primary CRUD (MenuItem — company-level entity) ----------------------------------
 
+  // @RequirePermission is optional — it short-circuits the request before the handler runs.
+  // The service still calls requirePermission() on its own. Double-gating is intentional:
+  // the decorator is a fast fail for HTTP, the service check is the source of truth.
   @Post()
   @ApiMenuItems('createOne')
+  @RequirePermission(Permissions.MenuItemsCreate)
   @AuditLog({ action: 'Create', resource: 'MenuItem' })
   async createOne(
-    @CurrentAbility() ability: AppAbility,
-    @CurrentCompany() companyId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateMenuItemDto,
   ): Promise<GetMenuItemDto> {
-    const result = await this.menuItemsService.createOne(
-      ability,
-      companyId,
-      CreateMenuItemDto.toInput(dto),
-    );
+    const result = await this.menuItemsService.createOne(user, CreateMenuItemDto.toInput(dto));
     return GetMenuItemDto.toDto(result);
   }
 
   @Get()
   @ApiMenuItems('getMany')
+  @RequirePermission(Permissions.MenuItemsRead)
   async getMany(
-    @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: AuthenticatedUser,
     @Query() query: GetMenuItemsQueryDto,
   ): Promise<PaginatedResponse<GetMenuItemDto>> {
-    const { data, meta } = await this.menuItemsService.getMany(ability, query);
+    const { data, meta } = await this.menuItemsService.getMany(user, query);
     return {
       data: data.map((item) => GetMenuItemDto.toDto(item)),
       meta,
@@ -86,24 +87,31 @@ export class MenuItemsController {
 
   @Get(':id')
   @ApiMenuItems('getOneById')
+  @RequirePermission(Permissions.MenuItemsRead)
   async getOneById(
-    @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<GetMenuItemDto> {
-    const result = await this.menuItemsService.getOne(ability, { id });
+    const result = await this.menuItemsService.getOne(user, { id });
     return GetMenuItemDto.toDto(result);
   }
 
   @Patch(':id')
   @ApiMenuItems('updateOneById')
-  @AuditLog({ action: 'Update', resource: 'MenuItem', captureDifferences: true, entityIdParam: 'id' })
+  @RequirePermission(Permissions.MenuItemsUpdate)
+  @AuditLog({
+    action: 'Update',
+    resource: 'MenuItem',
+    captureDifferences: true,
+    entityIdParam: 'id',
+  })
   async updateOneById(
-    @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateMenuItemDto,
   ): Promise<GetMenuItemDto> {
     const result = await this.menuItemsService.updateOne(
-      ability,
+      user,
       { id },
       UpdateMenuItemDto.toInput(dto),
     );
@@ -113,37 +121,40 @@ export class MenuItemsController {
   @Delete(':id')
   @ApiMenuItems('deleteOneById')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePermission(Permissions.MenuItemsDelete)
   @AuditLog({ action: 'Delete', resource: 'MenuItem' })
   async deleteOneById(
-    @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
-    return this.menuItemsService.deleteOne(ability, { id });
+    return this.menuItemsService.deleteOne(user, { id });
   }
   //#endregion
 
   //#region --- Status Transitions ----------------------------------------------------------------
 
-  // Status transitions get dedicated endpoints with specific CASL actions and audit actions
+  // Status transitions get dedicated endpoints with specific permissions and audit actions.
   @Post(':id/activate')
   @ApiMenuItems('activateById')
+  @RequirePermission(Permissions.MenuItemsUpdate)
   @AuditLog({ action: 'Update', resource: 'MenuItem' })
   async activateById(
-    @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<GetMenuItemDto> {
-    const result = await this.menuItemsService.activate(ability, { id });
+    const result = await this.menuItemsService.activate(user, { id });
     return GetMenuItemDto.toDto(result);
   }
 
   @Post(':id/deactivate')
   @ApiMenuItems('deactivateById')
+  @RequirePermission(Permissions.MenuItemsUpdate)
   @AuditLog({ action: 'Update', resource: 'MenuItem' })
   async deactivateById(
-    @CurrentAbility() ability: AppAbility,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<GetMenuItemDto> {
-    const result = await this.menuItemsService.deactivate(ability, { id });
+    const result = await this.menuItemsService.deactivate(user, { id });
     return GetMenuItemDto.toDto(result);
   }
   //#endregion

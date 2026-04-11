@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Hook: PostToolUse (Write|Edit) — Warn about multi-tenancy violations
-# Yellow Ladder: RLS handles company_id scoping; CASL handles shop_id scoping in services.
+# Yellow Ladder: RLS handles company_id scoping; RBAC handles shop_id scoping in services
+# via AuthorizationService.scopeWhereToUserShops / assertShopAccess.
 # SystemPrismaService is restricted to SUPER_ADMIN operations.
 
 set -euo pipefail
@@ -22,7 +23,7 @@ WARNINGS=""
 # SystemPrismaService without AuthorizationService protection
 if echo "$CONTENT" | grep -qF 'SystemPrismaService'; then
   if ! echo "$CONTENT" | grep -qE 'AuthorizationService|requirePermission'; then
-    WARNINGS+="WARNING: SystemPrismaService detected without AuthorizationService or requirePermission. It must only be used in services protected by CASL SUPER_ADMIN ability checks. See .claude/rules/architecture.md §Multi-Tenancy.\n"
+    WARNINGS+="WARNING: SystemPrismaService detected without AuthorizationService or requirePermission. It must only be used in services gated by AuthorizationService.requirePermission(user, ...) where the permission is restricted to SUPER_ADMIN in RolePermissionRegistry. See .claude/rules/architecture.md §Multi-Tenancy.\n"
   fi
 fi
 
@@ -33,11 +34,12 @@ if [[ "$FILE_PATH" == *.service.ts ]]; then
   fi
 fi
 
-# Missing shop_id filter on shop-scoped queries (heuristic: check service files that mention 'shop' but not 'shopId IN')
+# Missing shop_id filter on shop-scoped queries
+# Heuristic: service mentions shopId but doesn't use scopeWhereToUserShops / assertShopAccess / user.shopIds
 if [[ "$FILE_PATH" == *.service.ts ]]; then
   if echo "$CONTENT" | grep -qE '\bshopId\b' && \
-     ! echo "$CONTENT" | grep -qE 'shopId\s*:\s*\{\s*in\s*:|user\.shopIds|baseService\.scopeToShops'; then
-    WARNINGS+="NOTE: This service references shopId but the shop-scoping check is unclear. Shop scoping is a service-layer concern (CASL, not RLS). Use 'where: { shopId: { in: user.shopIds } }' or the base service helper. See .claude/rules/architecture.md §Shop Scoping.\n"
+     ! echo "$CONTENT" | grep -qE 'scopeWhereToUserShops|assertShopAccess|shopId\s*:\s*\{\s*in\s*:|user\.shopIds'; then
+    WARNINGS+="NOTE: This service references shopId but the shop-scoping check is unclear. Shop scoping is a service-layer concern (RBAC, not RLS). For reads use AuthorizationService.scopeWhereToUserShops(user, baseWhere); for single-shop writes use AuthorizationService.assertShopAccess(user, shopId). See .claude/rules/architecture.md §Shop Scoping.\n"
   fi
 fi
 

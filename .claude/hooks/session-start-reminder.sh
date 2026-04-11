@@ -5,7 +5,7 @@ cat <<'EOF'
 Yellow Ladder | Multi-tenant POS & restaurant management platform
 
 Migrating from legacy Tappd (Express + TypeORM) to NestJS 11 + Prisma 7 + PostgreSQL 15.
-Two-level tenancy (Company → Shop). 5 fixed CASL roles. Modular monolith.
+Two-level tenancy (Company → Shop). RBAC with 5 fixed roles in RolePermissionRegistry. Modular monolith.
 
 - 6 backend domains (Identity, Catalog, Ordering, Payment, Operations, Integrations)
 - 21 sub-module libs + 12 infra libs + 6 web + 5 mobile + 7 shared = 51 total libs
@@ -17,5 +17,5 @@ Conventions live in .claude/rules/. 13 hard constraints documented in architectu
 Engineer agents: backend, database, web, mobile, code-reviewer + advisory architect.
 
 ⚠️ Pre-RLS blockers OPEN: see .claude/rules/pre-rls-blockers.md
-⚠️ Hardcoded OTP 886644 must be removed before non-dev shipping (Constraint 12)
+⚠️ Legacy hardcoded testing OTP must be removed before non-dev shipping (Constraint 12)
 EOF

@@ -107,7 +107,7 @@ feat(backend-integrations-accounting): implement Xero dual-mode resolver
 chore(backend-infra-mail): switch to Handlebars templates
 fix(backend-identity-authentication): remove hardcoded OTP 886644
 feat(web-catalog): add menu item edit dialog
-fix(web-shared-ui): correct RTL flip on date picker
+fix(web-shared-ui): correct date picker locale formatting for fr
 feat(mobile-ordering): add kitchen screen
 chore(workspace): bump nx to 22.6
 chore(deps): update prisma to 7.0.5

@@ -11,6 +11,7 @@ allowed-tools: Read, Grep, Glob
 Audit a single lib against the full set of Yellow Ladder conventions documented in `.claude/rules/`.
 
 **Argument:**
+
 - `$1` — lib path (e.g., `libs/backend/catalog/menu-items`) or short name (e.g., `backend-catalog-menu-items`)
 
 ## Pre-flight checks
@@ -39,11 +40,13 @@ Apply ALL applicable checks in order. For each finding, output the file:line and
 
 - [ ] `*.module.ts` declares the NestJS module
 - [ ] `*.controller.ts` is **thin** — no business logic, only `Dto.toInput()` / `service.method()` / `Dto.toDto()`
-- [ ] `*.controller.ts` uses `@CurrentAbility()`, `@CurrentCompany()`, `@AuditLog()` decorators
+- [ ] `*.controller.ts` uses `@CurrentUser()` (not the legacy `@CurrentAbility()`), optionally `@RequirePermission(Permissions.XxxYyy)`, and `@AuditLog()` decorators
 - [ ] `*.controller.ts` uses `ParseUUIDPipe` on `:id` params
-- [ ] `*.controller.ts` passes `{ id }` object (not bare string) to service for CASL
-- [ ] `*.service.ts` follows the **5-method service flow** (`requirePermission` → `ensureFieldsPermitted` → ...)
-- [ ] `*.service.ts` injects `AuthorizationService` and uses it for authorization
+- [ ] `*.controller.ts` forwards `user: AuthenticatedUser` as the first argument to service methods
+- [ ] `*.service.ts` follows the **4-step RBAC service flow** (`requirePermission(user, Permissions.XxxYyy)` → `scopeWhereToUserShops(user, where)` or `assertShopAccess(user, shopId)` → repository → return)
+- [ ] `*.service.ts` methods take `user: AuthenticatedUser` as the first parameter (never `ability`)
+- [ ] `*.service.ts` injects `AuthorizationService` from `@yellowladder/backend-identity-authorization` and uses it for authorization
+- [ ] `*.service.ts` does NOT call `ensureFieldsPermitted`, `pickPermittedFields`, `ensureConditionsMet`, or `mergeConditionsIntoWhere` — those are CASL-era APIs that no longer exist
 - [ ] `*.service.ts` accepts named repository input types (NOT DTO classes, NOT raw Prisma types)
 - [ ] `*.service.ts` does NOT import request DTOs (`Create*Dto` / `Update*Dto`)
 - [ ] `*.service.ts` does NOT manually filter by `companyId` (RLS handles it)
@@ -54,22 +57,26 @@ Apply ALL applicable checks in order. For each finding, output the file:line and
 - [ ] DTO files implement `shared/types` interfaces
 - [ ] Request DTOs have `static toInput()` method
 - [ ] Response DTOs have `static toDto()` method
-- [ ] DTOs have `[key: string]: unknown` index signature for CASL
+- [ ] DTOs do NOT have a `[key: string]: unknown` index signature (it was a CASL workaround and is no longer needed)
+- [ ] Any new endpoint has a corresponding permission constant in `libs/shared/types/src/auth/permissions.constants.ts` and a wiring in `RolePermissionRegistry`
 - [ ] Cross-domain WRITES use `DomainEventPublisher`, not direct service imports
+- [ ] Translated text fields come as triples — `{field}En` + `{field}De` + `{field}Fr` in the Prisma model, the repository input type, the DTOs, and the `shared/types` interface. Never a solo English field, never a pair (legacy `nameEn` / `nameAr`). See `add-translated-columns` skill.
 
 ### 3. Web libs (additional)
 
 - [ ] Function components only (no class components)
 - [ ] No default exports (except framework configs)
 - [ ] Named export with `{Component}Props` interface
-- [ ] All user-facing strings via `useTranslation()` from `react-i18next` (no hardcoded EN/AR)
+- [ ] All user-facing strings via `useTranslation()` from `react-i18next` (no hardcoded strings in any locale)
 - [ ] RTK Query hooks from `@yellowladder/shared-api` (no raw `fetch`)
 - [ ] Forms use React Hook Form + Zod via `@hookform/resolvers/zod`
 - [ ] Zod schemas in co-located `*.schema.ts` files
 - [ ] MUI components from `@mui/material` (no Tailwind, no styled-components)
-- [ ] `<CanAction>` and `<CanField>` wrap action buttons and form fields
+- [ ] **NO RTL wiring** — no `direction: 'rtl'` in the MUI theme, no MUI RTL cache / `stylis-plugin-rtl`, no `<html dir="rtl">`, no Arabic-specific branches anywhere. Yellow Ladder is LTR-only (en / de / fr).
+- [ ] `<HasPermission permission={Permissions.XxxYyy}>` (or `useHasPermission`) from `@yellowladder/shared-web-ui` gates action buttons and protected fields. `Permissions` is imported from `@yellowladder/shared-types`.
+- [ ] No references to the removed CASL-era `<CanAction>` / `<CanField>` components or `useAbilitySync`
 - [ ] No `localStorage.setItem('...token...')` — access token is in-memory in Redux
-- [ ] Locale-prefixed routes (`/(en|ar)/...`)
+- [ ] Locale-prefixed routes (`/(en|de|fr)/...`)
 
 ### 4. Mobile libs (additional)
 
@@ -87,6 +94,7 @@ Apply ALL applicable checks in order. For each finding, output the file:line and
 - [ ] `shared/types` has zero dependencies
 - [ ] `shared/api` does NOT import any backend libs
 - [ ] `shared/utils` only depends on `shared/types`
+- [ ] `shared/i18n` contains exactly three message catalogs: `en.json`, `de.json`, `fr.json`. Every key present in one catalog must be present in all three. No `ar.json` or other legacy catalogs. Run the `audit-translations` skill to verify.
 
 ### 6. TypeScript rules (all libs)
 
@@ -116,6 +124,7 @@ For each finding:
 ```
 
 End with a summary:
+
 ```
 Conventions audit: {V} violations, {W} warnings, {O} OK checks
 ```
@@ -132,5 +141,6 @@ Conventions audit: {V} violations, {W} warnings, {O} OK checks
 ## Hand-off
 
 After the audit:
+
 - Pass the findings to the appropriate engineer agent for fixing
 - Escalate architectural questions (e.g., "is this even the right lib?") to `architect`

@@ -11,10 +11,12 @@ allowed-tools: Bash(npx nx *), Read, Write, Edit, Glob
 Use this skill to create a new backend sub-module lib at `libs/backend/{domain}/{submodule}/`.
 
 **Arguments:**
+
 - `$1` — domain (one of: `identity`, `catalog`, `ordering`, `payment`, `operations`, `integrations`)
 - `$2` — submodule name (kebab-case, e.g., `menu-items`, `stripe-accounts`)
 
 **Pre-flight checks:**
+
 - Confirm the target path does not already exist: `libs/backend/$1/$2/`
 - Confirm `$1` is one of the 6 valid domains
 - Read `.claude/rules/workspace-structure.md` to verify the sub-module fits the documented structure
@@ -23,6 +25,7 @@ Use this skill to create a new backend sub-module lib at `libs/backend/{domain}/
 ## Steps
 
 1. **Generate the Nx lib:**
+
    ```bash
    npx nx g @nx/nest:library libs/backend/$1/$2 \
      --tags="type:backend,platform:server,domain:$1" \
@@ -38,11 +41,11 @@ Use this skill to create a new backend sub-module lib at `libs/backend/{domain}/
 3. **Create canonical files in `src/`** (read `.claude/examples/canonical-*.ts` for the patterns):
    - `index.ts` — barrel that re-exports `*.module.ts`, public DTOs, and named input types
    - `$2.module.ts` — NestJS module
-   - `$2.controller.ts` — thin controller (use `.claude/examples/canonical-controller.ts` as reference)
-   - `$2.service.ts` — service with full CASL flow (use `.claude/examples/canonical-service.ts`)
-   - `$2.repository.ts` — Prisma wrapper with named input types (use `.claude/examples/canonical-repository.ts`)
+   - `$2.controller.ts` — thin controller that uses `@CurrentUser()` to receive the `AuthenticatedUser` and (optionally) `@RequirePermission(Permissions.XxxYyy)` for early rejection via the global `RolesGuard` (use `.claude/examples/canonical-controller.ts` as reference)
+   - `$2.service.ts` — service following the 4-step RBAC flow (`requirePermission → scopeWhereToUserShops / assertShopAccess → repository → return`); every method's first parameter is `user: AuthenticatedUser`. Uses `AuthorizationService` from `@yellowladder/backend-identity-authorization`. (Use `.claude/examples/canonical-service.ts`.)
+   - `$2.repository.ts` — Prisma wrapper with named input types and `findOne(where: Prisma.${Entity}WhereInput)` (use `.claude/examples/canonical-repository.ts`)
    - `$2.swagger.ts` — Swagger decorators (only if 3+ endpoints planned)
-   - `dtos/` directory (only when 2+ DTOs are planned — otherwise flat with `create-$2.dto.ts`)
+   - `dtos/` directory (only when 2+ DTOs are planned — otherwise flat with `create-$2.dto.ts`). DTOs do NOT need a `[key: string]: unknown;` index signature.
 
 4. **For shop-override entities** (e.g., `ShopMenuItem`, `ShopCategory`):
    - Do NOT create a separate sub-module — overrides live as **sibling files** inside the parent sub-module.
@@ -51,6 +54,7 @@ Use this skill to create a new backend sub-module lib at `libs/backend/{domain}/
    - See `.claude/rules/architecture.md` §Sub-Module Architecture and `.claude/rules/domain-model.md` §Override service convention.
 
 5. **Verify `project.json` tags** are correct:
+
    ```json
    {
      "tags": ["type:backend", "platform:server", "domain:$1"]
@@ -58,9 +62,11 @@ Use this skill to create a new backend sub-module lib at `libs/backend/{domain}/
    ```
 
 6. **Verify `tsconfig.base.json` path** was added:
+
    ```json
    "@yellowladder/backend-$1-$2": ["libs/backend/$1/$2/src/index.ts"]
    ```
+
    Insert in alphabetical order if not already present.
 
 7. **Update the barrel** (`src/index.ts`) to re-export:
@@ -76,12 +82,13 @@ Use this skill to create a new backend sub-module lib at `libs/backend/{domain}/
 - **No DDD layer directories** (`domain/`, `application/`, `infrastructure/`) — flat sub-module structure
 - **Barrel file is the only re-export point** — no shim re-export files
 - **`PrismaService`** is the default repository client (tenant-scoped, RLS enforced)
-- **CASL `AuthorizationService`** is injected in the service for the 5-method authorization flow
+- **`AuthorizationService`** is injected in the service for the 4-step RBAC flow; every service method takes `user: AuthenticatedUser` as its first parameter and calls `requirePermission(user, Permissions.XxxYyy)` before any work
 - **No tests scaffolded** — testing is deferred for the refactor (`.claude/rules/project.md` §Testing Strategy)
 
 ## Hand-off
 
 After scaffolding:
+
 - The `backend-engineer` agent owns the implementation of controller/service/repository methods
 - The `database-engineer` agent owns any Prisma schema changes the new sub-module needs
 - The `architect` agent should validate the structure if this is the first sub-module of a new domain

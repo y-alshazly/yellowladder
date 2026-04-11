@@ -5,30 +5,22 @@
 // Key conventions demonstrated:
 // 1. Request DTO: implements shared/types interface, @ApiProperty() on each field
 // 2. static toInput() returning the named repository input type (NOT raw Prisma type)
-// 3. Response DTO: static toDto() factory mapping from Prisma entity (or pickPermittedFields output)
+// 3. Response DTO: static toDto() factory mapping from Prisma entity
 // 4. class-validator decorators (@IsString, @IsNotEmpty, @IsUUID, @IsInt, @IsOptional, etc.)
-// 5. Index signature [key: string]: unknown — required for CASL ensureFieldsPermitted
-// 6. toDto() accepts unknown because pickPermittedFields returns an untyped object
+// 5. NO `[key: string]: unknown` index signature — the old CASL-era requirement is gone under RBAC
+// 6. toDto() accepts the typed Prisma entity (or Record<string, unknown> fallback)
 // 7. No default exports, no enums, no `any` type
-// 8. Bilingual fields: nameEn/nameAr, descriptionEn/descriptionAr
+// 8. Translated name fields (en/de/fr): nameEn/nameDe/nameFr, descriptionEn/descriptionDe/descriptionFr
 // 9. Monetary amounts as Int (pence) — never Float
 
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsBoolean,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Min,
-} from 'class-validator';
 import type { MenuItem } from '@prisma/client';
 import type {
   CreateMenuItemRequest,
   GetMenuItemResponse,
   UpdateMenuItemRequest,
 } from '@yellowladder/shared-types';
+import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 import type { CreateMenuItemInput, UpdateMenuItemInput } from '../menu-items.repository';
 
 // =====================================================================================
@@ -36,33 +28,41 @@ import type { CreateMenuItemInput, UpdateMenuItemInput } from '../menu-items.rep
 // =====================================================================================
 //
 // - implements the shared/types CreateMenuItemRequest interface
-// - has [key: string]: unknown index signature for CASL ensureFieldsPermitted
 // - has static toInput() that returns the named repository type
 // - uses class-validator for runtime validation (global ValidationPipe handles enforcement)
 // - uses @ApiProperty() for Swagger generation
+// - NO index signature: RBAC does not need dynamic field-permission lookups
 
 export class CreateMenuItemDto implements CreateMenuItemRequest {
-  [key: string]: unknown;
-
   @ApiProperty({ description: 'English display name', example: 'Margherita Pizza' })
   @IsString()
   @IsNotEmpty()
   nameEn: string;
 
-  @ApiProperty({ description: 'Arabic display name', example: 'بيتزا مارجريتا' })
+  @ApiProperty({ description: 'German display name', example: 'Margherita-Pizza' })
   @IsString()
   @IsNotEmpty()
-  nameAr: string;
+  nameDe: string;
+
+  @ApiProperty({ description: 'French display name', example: 'Pizza Margherita' })
+  @IsString()
+  @IsNotEmpty()
+  nameFr: string;
 
   @ApiPropertyOptional({ description: 'English description' })
   @IsOptional()
   @IsString()
   descriptionEn?: string;
 
-  @ApiPropertyOptional({ description: 'Arabic description' })
+  @ApiPropertyOptional({ description: 'German description' })
   @IsOptional()
   @IsString()
-  descriptionAr?: string;
+  descriptionDe?: string;
+
+  @ApiPropertyOptional({ description: 'French description' })
+  @IsOptional()
+  @IsString()
+  descriptionFr?: string;
 
   @ApiProperty({ description: 'Category UUID' })
   @IsUUID()
@@ -83,9 +83,11 @@ export class CreateMenuItemDto implements CreateMenuItemRequest {
   static toInput(dto: CreateMenuItemDto): CreateMenuItemInput {
     return {
       nameEn: dto.nameEn,
-      nameAr: dto.nameAr,
+      nameDe: dto.nameDe,
+      nameFr: dto.nameFr,
       descriptionEn: dto.descriptionEn,
-      descriptionAr: dto.descriptionAr,
+      descriptionDe: dto.descriptionDe,
+      descriptionFr: dto.descriptionFr,
       categoryId: dto.categoryId,
       basePrice: dto.basePrice,
       isActive: dto.isActive ?? true,
@@ -100,8 +102,6 @@ export class CreateMenuItemDto implements CreateMenuItemRequest {
 // All fields optional for partial updates. Same conventions as create.
 
 export class UpdateMenuItemDto implements UpdateMenuItemRequest {
-  [key: string]: unknown;
-
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -112,7 +112,13 @@ export class UpdateMenuItemDto implements UpdateMenuItemRequest {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
-  nameAr?: string;
+  nameDe?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  nameFr?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -122,7 +128,12 @@ export class UpdateMenuItemDto implements UpdateMenuItemRequest {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  descriptionAr?: string;
+  descriptionDe?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  descriptionFr?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -138,9 +149,11 @@ export class UpdateMenuItemDto implements UpdateMenuItemRequest {
   static toInput(dto: UpdateMenuItemDto): UpdateMenuItemInput {
     return {
       nameEn: dto.nameEn,
-      nameAr: dto.nameAr,
+      nameDe: dto.nameDe,
+      nameFr: dto.nameFr,
       descriptionEn: dto.descriptionEn,
-      descriptionAr: dto.descriptionAr,
+      descriptionDe: dto.descriptionDe,
+      descriptionFr: dto.descriptionFr,
       categoryId: dto.categoryId,
       basePrice: dto.basePrice,
     };
@@ -152,16 +165,18 @@ export class UpdateMenuItemDto implements UpdateMenuItemRequest {
 // =====================================================================================
 //
 // - implements the shared/types GetMenuItemResponse interface
-// - has static toDto() factory that maps from Prisma entity (or pickPermittedFields output)
-// - the toDto() input type is `unknown` because pickPermittedFields returns an opaque shape;
-//   alternatively use `MenuItem` if your service guarantees the full entity is returned
+// - has static toDto() factory that maps from the Prisma entity
+// - the toDto() input type is `MenuItem` because services now return the raw entity
+//   (field-level redaction is done by the service before returning, not by authorization helpers)
 
 export class GetMenuItemDto implements GetMenuItemResponse {
   @ApiProperty() id: string;
   @ApiProperty() nameEn: string;
-  @ApiProperty() nameAr: string;
+  @ApiProperty() nameDe: string;
+  @ApiProperty() nameFr: string;
   @ApiProperty({ required: false }) descriptionEn?: string;
-  @ApiProperty({ required: false }) descriptionAr?: string;
+  @ApiProperty({ required: false }) descriptionDe?: string;
+  @ApiProperty({ required: false }) descriptionFr?: string;
   @ApiProperty() categoryId: string;
   @ApiProperty({ description: 'Base price in pence (GBP)' }) basePrice: number;
   @ApiProperty() isActive: boolean;
@@ -170,18 +185,20 @@ export class GetMenuItemDto implements GetMenuItemResponse {
 
   // Static factory: Prisma entity → response DTO
   // Controllers call this on every service return value.
-  static toDto(entity: MenuItem | Record<string, unknown>): GetMenuItemDto {
+  static toDto(entity: MenuItem): GetMenuItemDto {
     const dto = new GetMenuItemDto();
-    dto.id = entity.id as string;
-    dto.nameEn = entity.nameEn as string;
-    dto.nameAr = entity.nameAr as string;
-    dto.descriptionEn = entity.descriptionEn as string | undefined;
-    dto.descriptionAr = entity.descriptionAr as string | undefined;
-    dto.categoryId = entity.categoryId as string;
-    dto.basePrice = entity.basePrice as number;
-    dto.isActive = entity.isActive as boolean;
-    dto.createdAt = entity.createdAt as Date;
-    dto.updatedAt = entity.updatedAt as Date;
+    dto.id = entity.id;
+    dto.nameEn = entity.nameEn;
+    dto.nameDe = entity.nameDe;
+    dto.nameFr = entity.nameFr;
+    dto.descriptionEn = entity.descriptionEn ?? undefined;
+    dto.descriptionDe = entity.descriptionDe ?? undefined;
+    dto.descriptionFr = entity.descriptionFr ?? undefined;
+    dto.categoryId = entity.categoryId;
+    dto.basePrice = entity.basePrice;
+    dto.isActive = entity.isActive;
+    dto.createdAt = entity.createdAt;
+    dto.updatedAt = entity.updatedAt;
     return dto;
   }
 }

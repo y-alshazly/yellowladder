@@ -3,10 +3,7 @@
   "defaultBase": "develop",
   "parallel": 5,
   "namedInputs": {
-    "default": [
-      "{projectRoot}/**/*",
-      "sharedGlobals"
-    ],
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": [
       "default",
       "!{projectRoot}/**/*.integration-spec.ts",
@@ -18,10 +15,7 @@
       "!{projectRoot}/test-setup.[jt]s",
       "!{projectRoot}/.eslintrc.json"
     ],
-    "sharedGlobals": [
-      "{workspaceRoot}/tsconfig.base.json",
-      "{workspaceRoot}/jest.preset.js"
-    ]
+    "sharedGlobals": ["{workspaceRoot}/tsconfig.base.json", "{workspaceRoot}/jest.preset.js"]
   },
   "plugins": [
     {
@@ -63,9 +57,7 @@
     },
     {
       "plugin": "@nx/react-native/plugin",
-      "include": [
-        "apps/mobile-*/**"
-      ],
+      "include": ["apps/mobile-*/**"],
       "options": {
         "startTargetName": "start",
         "upgradeTargetName": "update",
@@ -96,13 +88,8 @@
   "targetDefaults": {
     "@nx/js:tsc": {
       "cache": true,
-      "dependsOn": [
-        "^build"
-      ],
-      "inputs": [
-        "production",
-        "^production"
-      ]
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
     },
     "lint": {
       "cache": true,
@@ -116,17 +103,11 @@
     },
     "test": {
       "cache": true,
-      "inputs": [
-        "default",
-        "^production"
-      ]
+      "inputs": ["default", "^production"]
     },
     "typecheck": {
       "cache": true,
-      "inputs": [
-        "production",
-        "^production"
-      ]
+      "inputs": ["production", "^production"]
     }
   },
   "generators": {

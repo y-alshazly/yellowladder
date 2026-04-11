@@ -12,6 +12,9 @@ out-tsc
 .env
 .env*.local
 
+# MCP config (contains API tokens)
+.mcp.json
+
 # Test & coverage
 coverage/
 

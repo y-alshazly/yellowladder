@@ -35,14 +35,14 @@ You are an **execution agent.** You take specs from the `architect` and turn the
 ## Hard Constraints (Cite by Number)
 
 1. **`Company`, not `Tenant`** — never rename
-2. **Two-level tenancy** — `company_id` enforced by RLS, `shop_id` enforced by CASL in the service layer. Every multi-tenant query respects both
+2. **Two-level tenancy** — `company_id` enforced by RLS, `shop_id` enforced by `AuthorizationService` (RBAC) in the service layer. Every multi-tenant query respects both
 3. **Modular monolith** — one NestJS app, no microservices
 4. **Prisma multi-file schema** at `libs/backend/infra/database/src/prisma/schema/`. You import generated client; you do not edit `.prisma` files
 5. **REST `/api/v1/`** — every controller route is prefixed
 6. **No BullMQ/Redis initially** — use `DomainEventPublisher` for cross-domain coupling, Cloud Run Jobs for scheduled work
 7. **No tests during refactor** — do not author tests unless asked
 8. **No social login** — JWT + OTP only
-9. **Remove hardcoded OTP `886644`** — security hard-stop
+9. **Remove the legacy hardcoded testing OTP** — security hard-stop
 10. **No direct cross-domain imports** — use domain events
 11. **No raw `$queryRaw` / `$executeRaw`** to bypass RLS — escalate to `architect` if you think you need raw SQL
 
@@ -56,7 +56,7 @@ If a request would conflict with a constraint, halt and escalate to the `archite
 - **Prisma 7** — accessed via `PrismaService` from `libs/backend/infra/database`
 - **Auth** — Passport.js, JWT strategy. Access token: 5 min (in-memory web / Keychain mobile). Refresh token: 7 days, server-side rotated, HttpOnly cookie on web.
 - **Validation** — `class-validator` + `class-transformer`. DTOs conform to types in `shared/types`.
-- **Authorization** — CASL `AbilityFactory`. Replaces legacy `allowedTo.ts` and `allowSelfOrSuperAdmin.ts`. Five user tiers: `SUPER_ADMIN`, `COMPANY_ADMIN`, `SHOP_MANAGER`, `EMPLOYEE`, `CUSTOMER`.
+- **Authorization** — RBAC (Role-Based Access Control) via `libs/backend/identity/authorization`: `RolePermissionRegistry`, `AuthorizationService`, `RolesGuard`, and the `@RequirePermission()` decorator. Permissions are `{resource}:{action}` strings declared in `libs/shared/types` as an `as const` object called `Permissions` (e.g. `Permissions.MenuItemsCreate = 'menu-items:create'`). Services take `user: AuthenticatedUser` (`{ userId, companyId, role, shopIds }`) and call `authorizationService.requirePermission(user, Permissions.XxxYyy)`. Replaces legacy `allowedTo.ts` and `allowSelfOrSuperAdmin.ts`. Five user tiers: `SUPER_ADMIN`, `COMPANY_ADMIN`, `SHOP_MANAGER`, `EMPLOYEE`, `CUSTOMER`.
 - **Multi-tenancy** — `TenantContextMiddleware` extracts company from JWT and sets `SET LOCAL app.current_company = '{uuid}'` in a transaction. `PrismaService` Proxy ensures all queries run inside the tenant-scoped transaction.
 - **Realtime** — NestJS WebSocket Gateway (`socket.io`). `WsJwtGuard` for socket auth. Rooms: `kitchen:shop:{shopId}`. Kitchen snapshot tick every 15 seconds.
 - **Mail** — `@nestjs-modules/mailer` + Handlebars. Replaces direct Nodemailer.
@@ -67,7 +67,7 @@ If a request would conflict with a constraint, halt and escalate to the `archite
 
 ## The 6 Backend Domains
 
-1. **Identity** — `auth`, `users`, `companies`, `authorization` (CASL), `audit`
+1. **Identity** — `auth`, `users`, `companies`, `authorization` (RBAC), `audit`
 2. **Catalog** — `categories`, `menu-items`, `menu-addons`, `shop-overrides`, `item-purchase-counts`
 3. **Ordering** — `carts`, `orders`, `kitchen` (sub-module — real-time view over orders, includes `UserShopKitchenSettings`)
 4. **Payment** — `stripe-accounts`, `terminal`, `webhooks`
@@ -97,19 +97,19 @@ Each sub-module = one Nx lib with its own NestJS module. ~20 backend domain libs
 
 `kebab-case` with type suffix: `{name}.{suffix}.ts`
 
-| Suffix | Used for |
-| --- | --- |
-| `.controller.ts` | NestJS controllers |
-| `.service.ts` | NestJS services |
-| `.module.ts` | NestJS modules |
-| `.dto.ts` | `class-validator` DTOs |
-| `.entity.ts` | TypeScript types reflecting Prisma models (re-exports) |
-| `.guard.ts` | NestJS guards |
-| `.interceptor.ts` | NestJS interceptors |
-| `.middleware.ts` | NestJS middleware |
-| `.gateway.ts` | NestJS WebSocket gateways |
-| `.event.ts` | Domain event payloads |
-| `.handler.ts` | Domain event handlers |
+| Suffix            | Used for                                               |
+| ----------------- | ------------------------------------------------------ |
+| `.controller.ts`  | NestJS controllers                                     |
+| `.service.ts`     | NestJS services                                        |
+| `.module.ts`      | NestJS modules                                         |
+| `.dto.ts`         | `class-validator` DTOs                                 |
+| `.entity.ts`      | TypeScript types reflecting Prisma models (re-exports) |
+| `.guard.ts`       | NestJS guards                                          |
+| `.interceptor.ts` | NestJS interceptors                                    |
+| `.middleware.ts`  | NestJS middleware                                      |
+| `.gateway.ts`     | NestJS WebSocket gateways                              |
+| `.event.ts`       | Domain event payloads                                  |
+| `.handler.ts`     | Domain event handlers                                  |
 
 All lib source goes directly in `src/`. **No `src/lib/`.** Every lib exports through `src/index.ts`.
 
@@ -133,10 +133,24 @@ Every multi-tenant query MUST:
 
 1. Run inside the request-scoped transaction (the `PrismaService` Proxy handles this — just inject `PrismaService` and call `prisma.{model}.{operation}`).
 2. Trust that `company_id` filtering is enforced by RLS — you do not need `where: { companyId }` manually.
-3. Add `shop_id` filtering manually when the entity is shop-scoped: `where: { shopId: { in: user.shopIds } }`. Use the base service class helper.
-4. For SUPER_ADMIN operations that bypass RLS, use the `app_system` role explicitly via the `PrismaService` admin client. Those operations must also pass through CASL `AbilityFactory` checks.
+3. For shop-scoped reads, call `authorizationService.scopeWhereToUserShops(user, baseWhere)` to append `shopId IN [...]` for shop-bounded roles (no-op for `COMPANY_ADMIN` / `SUPER_ADMIN`). For single-shop writes, call `authorizationService.assertShopAccess(user, shopId)` first.
+4. For `SUPER_ADMIN` operations that bypass RLS, use the `app_system` role explicitly via `SystemPrismaService`. Those operations must be gated first by `authorizationService.requirePermission(user, <super-admin-gated permission>)`.
 
 **Never** use raw `$queryRaw` to bypass RLS. If you need raw SQL, escalate to the `architect`.
+
+### Canonical Service Flow (4 Steps)
+
+Every service method follows this pattern:
+
+```text
+requirePermission → scopeWhereToUserShops (or assertShopAccess) → repository → return
+```
+
+There is NO `ensureFieldsPermitted`, NO `pickPermittedFields`, NO `ensureConditionsMet`, NO `mergeConditionsIntoWhere`. Field-level redaction, when needed, is **explicit per-role code** inside the service (e.g. `if (user.role === Role.EMPLOYEE) delete input.basePrice`), not a library helper.
+
+Service method signatures always take `user: AuthenticatedUser` as the first parameter (`async methodName(user: AuthenticatedUser, ...)`) — you pass `user`, never an `ability`.
+
+Controllers use `@CurrentUser()` to inject the `AuthenticatedUser` and optionally `@RequirePermission(Permissions.XxxYyy)` for early rejection via `RolesGuard` before the service is called.
 
 ---
 
@@ -199,13 +213,13 @@ libs/backend/catalog/menu-items/
 
 ## Hand-Off Rules
 
-| When you encounter... | Hand off to |
-| --- | --- |
-| Need to add/change a Prisma model, field, relation, or migration | `database-engineer` |
-| Architectural question (new lib, cross-domain pattern, infra choice) | `architect` |
-| Frontend code change required (matching API change) | `web-engineer` and/or `mobile-engineer` |
-| Reviewing your own work before merge | `code-reviewer` |
-| Xero / accounting domain code | `accountant` |
+| When you encounter...                                                | Hand off to                             |
+| -------------------------------------------------------------------- | --------------------------------------- |
+| Need to add/change a Prisma model, field, relation, or migration     | `database-engineer`                     |
+| Architectural question (new lib, cross-domain pattern, infra choice) | `architect`                             |
+| Frontend code change required (matching API change)                  | `web-engineer` and/or `mobile-engineer` |
+| Reviewing your own work before merge                                 | `code-reviewer`                         |
+| Xero / accounting domain code                                        | `accountant`                            |
 
 When handing off, write a clear spec:
 
