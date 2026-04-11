@@ -4,25 +4,27 @@
 //
 // Key conventions demonstrated:
 // 1. Service accepts named repository input types — NOT DTO classes, NOT raw Prisma types
-// 2. Full CASL authorization flow in every method (5-method service flow)
-// 3. Repository pattern — service never calls Prisma directly
-// 4. Domain events for cross-domain writes via DomainEventPublisher
-// 5. No manual companyId filtering — RLS handles it automatically via PrismaService Proxy
-// 6. Shop scoping via CASL mergeConditionsIntoWhere (NOT manual where clauses)
-// 7. Returns raw entity objects — controller calls toDto()
-// 8. BusinessException with domain-specific error codes from shared/types (never raw NestJS exceptions)
-// 9. `where: Record<string, unknown>` parameter for getOne/updateOne/deleteOne — enables CASL conditions
-// 10. #region blocks to group related methods
+// 2. 4-step RBAC authorization flow in every method:
+//      requirePermission → scopeWhereToUserShops (or assertShopAccess) → repository → return
+// 3. Service signature takes `user: AuthenticatedUser` — NOT `ability`
+// 4. Repository pattern — service never calls Prisma directly
+// 5. Domain events for cross-domain writes via DomainEventPublisher
+// 6. No manual companyId filtering — RLS handles it automatically via PrismaService Proxy
+// 7. Shop scoping via AuthorizationService.scopeWhereToUserShops (no-op for COMPANY_ADMIN/SUPER_ADMIN)
+// 8. Returns raw entity objects — controller calls toDto()
+// 9. BusinessException with domain-specific error codes from shared/types (never raw NestJS exceptions)
+// 10. Field-level redaction is explicit per-role code (no ensureFieldsPermitted / pickPermittedFields)
+// 11. #region blocks to group related methods
 
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { AppAbility, AuthorizationService } from '@yellowladder/backend-identity-authorization';
+import { AuthorizationService } from '@yellowladder/backend-identity-authorization';
+import { BusinessException, DomainEventPublisher } from '@yellowladder/backend-infra-database';
 import {
-  BusinessException,
-  DomainEventPublisher,
-} from '@yellowladder/backend-infra-database';
-import {
+  AuthenticatedUser,
   CatalogMenuItemsErrors,
   DomainEventNames,
+  Permissions,
+  Role,
   type MenuItemActivatedEvent,
 } from '@yellowladder/shared-types';
 import { GetMenuItemsQueryDto } from './dtos/get-menu-items-query.dto';
@@ -40,16 +42,20 @@ export class MenuItemsService {
     private readonly domainEventPublisher: DomainEventPublisher,
   ) {}
 
-  //#region --- MenuItem CRUD (5-method CASL service flow) ----------------------------------------
+  //#region --- MenuItem CRUD (4-step RBAC service flow) ------------------------------------------
 
-  // Create flow: requirePermission → ensureFieldsPermitted → ensureConditionsMet → create → pickPermittedFields
+  // Create flow: requirePermission → (optional field redaction per role) → repository.createOne → return
   // Input type: named repository type (CreateMenuItemInput), NOT DTO class
-  // companyId: passed from controller via @CurrentCompany(), added by repository
+  // companyId: passed from controller via @CurrentUser(), added by repository
   // Note: companyId is enforced by RLS — we still pass it explicitly for the create operation
-  async createOne(ability: AppAbility, companyId: string, dto: CreateMenuItemInput) {
-    this.authorizationService.requirePermission(ability, 'Create', 'MenuItem');
-    this.authorizationService.ensureFieldsPermitted(ability, dto, 'MenuItem', 'Create');
-    this.authorizationService.ensureConditionsMet(ability, { ...dto, companyId }, 'MenuItem', 'Create');
+  async createOne(user: AuthenticatedUser, dto: CreateMenuItemInput) {
+    this.authorizationService.requirePermission(user, Permissions.MenuItemsCreate);
+
+    // Explicit per-role field redaction (no CASL field permissions).
+    // EMPLOYEE cannot set basePrice — silently strip it so Managers/Admins can still create.
+    if (user.role === Role.EMPLOYEE) {
+      delete dto.basePrice;
+    }
 
     // Business rule validation — use BusinessException with domain error codes
     const existing = await this.repository.findOneByName(dto.nameEn);
@@ -73,25 +79,18 @@ export class MenuItemsService {
       );
     }
 
-    const menuItem = await this.repository.createOne({ ...dto, companyId });
-
-    return this.authorizationService.pickPermittedFields(ability, menuItem, 'MenuItem', 'Read');
+    return this.repository.createOne({ ...dto, companyId: user.companyId });
   }
 
-  // Read one flow: requirePermission → mergeConditionsIntoWhere → findOne → pickPermittedFields
-  // IMPORTANT: accepts `where: Record<string, unknown>` — NOT `id: string`
-  // Controller passes `{ id }` — mergeConditionsIntoWhere adds CASL conditions to the WHERE
-  async getOne(ability: AppAbility, where: Record<string, unknown>) {
-    this.authorizationService.requirePermission(ability, 'Read', 'MenuItem');
+  // Read one flow: requirePermission → scopeWhereToUserShops → findOne → return
+  // IMPORTANT: accepts `where: Prisma.MenuItemWhereInput` — NOT `id: string`
+  // Controller passes `{ id }`; scopeWhereToUserShops appends `shopId IN [...]` for shop-bounded roles.
+  async getOne(user: AuthenticatedUser, where: Record<string, unknown>) {
+    this.authorizationService.requirePermission(user, Permissions.MenuItemsRead);
 
-    const mergedWhere = this.authorizationService.mergeConditionsIntoWhere(
-      ability,
-      'Read',
-      'MenuItem',
-      where,
-    );
+    const scopedWhere = this.authorizationService.scopeWhereToUserShops(user, where);
 
-    const menuItem = await this.repository.findOne(mergedWhere);
+    const menuItem = await this.repository.findOne(scopedWhere);
     if (!menuItem) {
       throw new BusinessException(
         CatalogMenuItemsErrors.MenuItemNotFound,
@@ -100,21 +99,18 @@ export class MenuItemsService {
       );
     }
 
-    return this.authorizationService.pickPermittedFields(ability, menuItem, 'MenuItem', 'Read');
+    return menuItem;
   }
 
-  // List flow: requirePermission → buildPrismaQuery (or hand-built) → mergeConditionsIntoWhere → findMany → pickPermittedFields
-  async getMany(ability: AppAbility, query: GetMenuItemsQueryDto) {
-    this.authorizationService.requirePermission(ability, 'Read', 'MenuItem');
+  // List flow: requirePermission → buildWhereFromQuery → scopeWhereToUserShops → findMany → return
+  async getMany(user: AuthenticatedUser, query: GetMenuItemsQueryDto) {
+    this.authorizationService.requirePermission(user, Permissions.MenuItemsRead);
 
     const baseWhere = this.buildWhereFromQuery(query);
 
-    const where = this.authorizationService.mergeConditionsIntoWhere(
-      ability,
-      'Read',
-      'MenuItem',
-      baseWhere,
-    );
+    // scopeWhereToUserShops is a no-op for COMPANY_ADMIN / SUPER_ADMIN;
+    // for SHOP_MANAGER / EMPLOYEE it appends `shopId: { in: user.shopIds }`.
+    const where = this.authorizationService.scopeWhereToUserShops(user, baseWhere);
 
     const { items, total } = await this.repository.findMany(
       where,
@@ -123,12 +119,8 @@ export class MenuItemsService {
       this.buildOrderByFromQuery(query),
     );
 
-    const data = items.map((item) =>
-      this.authorizationService.pickPermittedFields(ability, item, 'MenuItem', 'Read'),
-    );
-
     return {
-      data,
+      data: items,
       meta: {
         total,
         take: query.take,
@@ -139,20 +131,19 @@ export class MenuItemsService {
     };
   }
 
-  // Update flow: requirePermission → mergeConditionsIntoWhere → fetch → ensureFieldsPermitted → update → pickPermittedFields
-  // IMPORTANT: accepts `where: Record<string, unknown>` — NOT `id: string`
-  // Uses existing.id when calling repository.updateOne — safe after access verification
-  async updateOne(ability: AppAbility, where: Record<string, unknown>, dto: UpdateMenuItemInput) {
-    this.authorizationService.requirePermission(ability, 'Update', 'MenuItem');
+  // Update flow: requirePermission → scopeWhereToUserShops → fetch → (optional field redaction) → updateOne → return
+  // IMPORTANT: accepts `where: Prisma.MenuItemWhereInput` — NOT `id: string`
+  // Uses existing.id when calling repository.updateOne — safe after shop-scoped access check.
+  async updateOne(
+    user: AuthenticatedUser,
+    where: Record<string, unknown>,
+    dto: UpdateMenuItemInput,
+  ) {
+    this.authorizationService.requirePermission(user, Permissions.MenuItemsUpdate);
 
-    const mergedWhere = this.authorizationService.mergeConditionsIntoWhere(
-      ability,
-      'Update',
-      'MenuItem',
-      where,
-    );
+    const scopedWhere = this.authorizationService.scopeWhereToUserShops(user, where);
 
-    const existing = await this.repository.findOne(mergedWhere);
+    const existing = await this.repository.findOne(scopedWhere);
     if (!existing) {
       throw new BusinessException(
         CatalogMenuItemsErrors.MenuItemNotFound,
@@ -161,26 +152,21 @@ export class MenuItemsService {
       );
     }
 
-    this.authorizationService.ensureFieldsPermitted(ability, dto, 'MenuItem', 'Update');
+    // Explicit per-role field redaction. EMPLOYEE cannot change price.
+    if (user.role === Role.EMPLOYEE) {
+      delete dto.basePrice;
+    }
 
-    const updated = await this.repository.updateOne(existing.id, dto);
-
-    return this.authorizationService.pickPermittedFields(ability, updated, 'MenuItem', 'Read');
+    return this.repository.updateOne(existing.id, dto);
   }
 
-  // Delete flow: requirePermission → mergeConditionsIntoWhere → fetch → delete
-  // No pickPermittedFields needed — void return
-  async deleteOne(ability: AppAbility, where: Record<string, unknown>): Promise<void> {
-    this.authorizationService.requirePermission(ability, 'Delete', 'MenuItem');
+  // Delete flow: requirePermission → scopeWhereToUserShops → fetch → delete
+  async deleteOne(user: AuthenticatedUser, where: Record<string, unknown>): Promise<void> {
+    this.authorizationService.requirePermission(user, Permissions.MenuItemsDelete);
 
-    const mergedWhere = this.authorizationService.mergeConditionsIntoWhere(
-      ability,
-      'Delete',
-      'MenuItem',
-      where,
-    );
+    const scopedWhere = this.authorizationService.scopeWhereToUserShops(user, where);
 
-    const existing = await this.repository.findOne(mergedWhere);
+    const existing = await this.repository.findOne(scopedWhere);
     if (!existing) {
       throw new BusinessException(
         CatalogMenuItemsErrors.MenuItemNotFound,
@@ -196,17 +182,12 @@ export class MenuItemsService {
   //#region --- Status Transitions ----------------------------------------------------------------
 
   // Status transitions: validate current state, dedicated repository method, publish domain event
-  async activate(ability: AppAbility, where: Record<string, unknown>) {
-    this.authorizationService.requirePermission(ability, 'Update', 'MenuItem');
+  async activate(user: AuthenticatedUser, where: Record<string, unknown>) {
+    this.authorizationService.requirePermission(user, Permissions.MenuItemsUpdate);
 
-    const mergedWhere = this.authorizationService.mergeConditionsIntoWhere(
-      ability,
-      'Update',
-      'MenuItem',
-      where,
-    );
+    const scopedWhere = this.authorizationService.scopeWhereToUserShops(user, where);
 
-    const existing = await this.repository.findOne(mergedWhere);
+    const existing = await this.repository.findOne(scopedWhere);
     if (!existing) {
       throw new BusinessException(
         CatalogMenuItemsErrors.MenuItemNotFound,
@@ -217,7 +198,7 @@ export class MenuItemsService {
 
     if (existing.isActive) {
       // Idempotent — already active, just return
-      return this.authorizationService.pickPermittedFields(ability, existing, 'MenuItem', 'Read');
+      return existing;
     }
 
     const activated = await this.repository.activate(existing.id);
@@ -230,7 +211,21 @@ export class MenuItemsService {
     };
     await this.domainEventPublisher.publish(DomainEventNames.MenuItemActivated, event);
 
-    return this.authorizationService.pickPermittedFields(ability, activated, 'MenuItem', 'Read');
+    return activated;
+  }
+  //#endregion
+
+  //#region --- Shop-Targeted Action Example ------------------------------------------------------
+
+  // When an action targets a SPECIFIC shop (passed in URL or body), use assertShopAccess
+  // instead of scopeWhereToUserShops. This throws ForbiddenException if the user cannot
+  // access that shop. It's a no-op for COMPANY_ADMIN / SUPER_ADMIN.
+  async assignToShop(user: AuthenticatedUser, menuItemId: string, shopId: string) {
+    this.authorizationService.requirePermission(user, Permissions.MenuItemsUpdate);
+    this.authorizationService.assertShopAccess(user, shopId);
+
+    // ... perform the assignment via repository
+    return this.repository.assignToShop(menuItemId, shopId);
   }
   //#endregion
 
@@ -241,7 +236,8 @@ export class MenuItemsService {
     if (query.search) {
       where.OR = [
         { nameEn: { contains: query.search, mode: 'insensitive' } },
-        { nameAr: { contains: query.search, mode: 'insensitive' } },
+        { nameDe: { contains: query.search, mode: 'insensitive' } },
+        { nameFr: { contains: query.search, mode: 'insensitive' } },
       ];
     }
     if (query.categoryId) {

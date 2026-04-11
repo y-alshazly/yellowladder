@@ -1,17 +1,18 @@
 // @ts-nocheck
 // CANONICAL EXAMPLE: NestJS Repository Pattern (Yellow Ladder)
-// This is a reference file — not runnable code. Read before writing any new repository.
+// This is a reference file — not runnable code. Read before writing a new repository.
 //
 // Key conventions demonstrated:
 // 1. Named input types exported (CreateMenuItemInput, UpdateMenuItemInput) — Omit<> of Prisma unchecked input
 // 2. Include/select objects as module-level constants for reuse and type inference
 // 3. PrismaService for tenant-scoped queries — RLS handles company_id automatically
-// 4. findOne(where: Prisma.MenuItemWhereInput) — accepts full WHERE for CASL mergeConditionsIntoWhere pass-through
+// 4. findOne(where: Prisma.MenuItemWhereInput) — accepts the full WHERE so the service can
+//    pass the result of AuthorizationService.scopeWhereToUserShops() through unchanged
 // 5. findMany(where, skip, take, orderBy) — explicitly typed parameters (not a params object)
 // 6. Use Prisma.InputJsonValue for JSON fields (never `as never`)
 // 7. Status transition methods are dedicated (e.g., activate(), deactivate()) — not generic update
 // 8. #region blocks to organize methods
-// 9. No `unknown`, no `as any`, no `as never` casts — use Prisma's generated types
+// 9. No `unknown`, no loose casts — rely on Prisma's generated types throughout
 // 10. Service code calls toInput() before passing to repository — repository accepts the named type
 
 import { Injectable } from '@nestjs/common';
@@ -43,7 +44,8 @@ export class MenuItemsRepository {
 
   //#region --- MenuItem CRUD ---------------------------------------------------------------------
 
-  // findOne accepts a full WhereInput so CASL mergeConditionsIntoWhere can pass conditions through
+  // findOne accepts a full WhereInput so the service can pass
+  // AuthorizationService.scopeWhereToUserShops(user, baseWhere) through unchanged.
   async findOne(where: Prisma.MenuItemWhereInput) {
     return this.prisma.menuItem.findFirst({
       where,
@@ -93,7 +95,8 @@ export class MenuItemsRepository {
     });
   }
 
-  // updateOne accepts an `id` (already verified by the service) and the typed update input
+  // updateOne accepts an `id` (already verified by the service via scopeWhereToUserShops)
+  // and the typed update input.
   async updateOne(id: string, input: UpdateMenuItemInput) {
     return this.prisma.menuItem.update({
       where: { id },
@@ -144,8 +147,9 @@ export class MenuItemsRepository {
 // NOTE on PrismaService:
 // - PrismaService is the default tenant-scoped client. Its Proxy automatically wraps every
 //   operation in a transaction with `SET LOCAL app.current_company = '{uuid}'` set from
-//   TenantContextStore. RLS enforces company_id without any application-layer filtering.
+//   TenantContextStore. RLS enforces company_id without application-layer filtering.
 // - For SUPER_ADMIN operations (when SystemPrismaService is introduced), inject SystemPrismaService
-//   instead — but only in services where AuthorizationService.requirePermission() verifies the
-//   SUPER_ADMIN ability first. See .claude/rules/architecture.md §Multi-Tenancy.
-// - NEVER use $queryRawUnsafe with user input. RLS does not protect raw SQL.
+//   instead — but only in services where AuthorizationService.requirePermission() verifies a
+//   SUPER_ADMIN permission first. See .claude/rules/architecture.md §Multi-Tenancy.
+// - NEVER execute raw unparameterized SQL with user input. RLS does not protect raw SQL.
+//   Always use Prisma's parameterized query methods.

@@ -16,7 +16,7 @@ For the architectural patterns governing these dependencies (direct imports vs. 
 | Authentication | `backend-identity-authentication` | OTP records, password reset tokens, refresh token records                                                              |
 | Users          | `backend-identity-users`          | `User`, `UserDeviceInfo`                                                                                               |
 | Companies      | `backend-identity-companies`      | `Company` + 4 config enum tables (`BusinessType`, `PaymentMethod`, `CompanyInfo*` × 2) as sibling files in same module |
-| Authorization  | `backend-identity-authorization`  | CASL `AbilityFactory`, `AuthorizationService` (5 fixed roles in code)                                                  |
+| Authorization  | `backend-identity-authorization`  | `RolePermissionRegistry`, `AuthorizationService`, `RolesGuard`, `@RequirePermission()` (5 fixed roles in code)         |
 | Audit          | `backend-identity-audit`          | `LogEvent`, `AuditService`, `@AuditLog` decorator                                                                      |
 
 The 4 config enum tables (business types, payment methods, and 2 company-info lookups — exact names of the company-info tables TBD with the user) each get their own `*.controller.ts` / `*.service.ts` / `*.repository.ts` files inside `backend-identity-companies`. They share the sub-module's NestJS module but expose distinct URL surfaces (e.g., `/api/v1/business-types`, `/api/v1/payment-methods`). The legacy filename typo `compant-info-*` is renamed to `company-info-*` during the refactor.
@@ -289,9 +289,9 @@ The Xero sync is intentionally a scheduled batch job, not event-driven, to avoid
 
 ### Identity (Authorization)
 
-- The 5 user tiers (`SUPER_ADMIN`, `COMPANY_ADMIN`, `SHOP_MANAGER`, `EMPLOYEE`, `CUSTOMER`) are **hard-coded in `AbilityFactory`**. There is no `Role` / `Policy` table system. Adding a new role means editing code.
-- A `SHOP_MANAGER` can only operate within `user.shopIds`. Querying outside this list returns empty results (CASL `mergeConditionsIntoWhere`).
-- A `SUPER_ADMIN` operates outside the RLS-enforced `app_tenant` role and must use `SystemPrismaService` (when introduced) gated by CASL.
+- The 5 user tiers (`SUPER_ADMIN`, `COMPANY_ADMIN`, `SHOP_MANAGER`, `EMPLOYEE`, `CUSTOMER`) are **hard-coded in `RolePermissionRegistry`**. There is no `Role` / `Policy` table system. Adding a new permission means editing the registry.
+- A `SHOP_MANAGER` can only operate within `user.shopIds`. Queries are scoped via `AuthorizationService.scopeWhereToUserShops(user, where)`, which appends `shopId IN [...]` to the WHERE clause. Single-shop writes use `AuthorizationService.assertShopAccess(user, shopId)`.
+- A `SUPER_ADMIN` operates outside the RLS-enforced `app_tenant` role and must use `SystemPrismaService` (when introduced), gated by `AuthorizationService.requirePermission(user, <super-admin-gated permission>)`.
 
 ### Payment (Stripe)
 

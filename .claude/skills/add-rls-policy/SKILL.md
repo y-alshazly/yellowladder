@@ -11,6 +11,7 @@ Append RLS policies and role grants for an existing tenant-scoped table.
 **Owner:** `database-engineer` agent only.
 
 **Argument:**
+
 - `$1` — `table_name` in `snake_case` (e.g., `menu_item`, `cart`)
 
 ## Pre-flight checks
@@ -23,19 +24,24 @@ Append RLS policies and role grants for an existing tenant-scoped table.
 ## Steps
 
 1. **Verify orphan resolution** (relevant if `companyId` was previously nullable):
+
    ```sql
    SELECT count(*) FROM $1 WHERE company_id IS NULL;
    ```
+
    If the count is non-zero, **STOP** and resolve orphans first.
 
 2. **Confirm `companyId` is `NOT NULL`:**
+
    ```sql
    SELECT is_nullable FROM information_schema.columns
    WHERE table_name = '$1' AND column_name = 'company_id';
    ```
+
    If `YES`, **STOP** — apply `NOT NULL` constraint in the same migration as the RLS policy.
 
 3. **Generate the migration** (or append to an existing pending migration):
+
    ```bash
    npx prisma migrate dev --name enable_rls_on_$1 --create-only
    ```
@@ -43,6 +49,7 @@ Append RLS policies and role grants for an existing tenant-scoped table.
 4. **Append the RLS SQL** to the generated migration file:
 
    **Standard pattern (most multi-tenant tables):**
+
    ```sql
    -- Enable RLS
    ALTER TABLE $1 ENABLE ROW LEVEL SECURITY;
@@ -67,11 +74,12 @@ Append RLS policies and role grants for an existing tenant-scoped table.
    - `app_public` only gets `SELECT` (read-only public access if needed)
    - `app_system` bypasses RLS via `BYPASSRLS` role attribute, set in the role-creation migration
 
-5. **For shop-scoped tables, do NOT add a `shop_id` filter to RLS.** Shop scoping is a service-layer concern enforced by CASL, not a database concern. Adding shop-scoping to RLS would couple the policy to per-request user state, which RLS isn't designed for.
+5. **For shop-scoped tables, do NOT add a `shop_id` filter to RLS.** Shop scoping is a service-layer concern enforced by RBAC (`AuthorizationService.scopeWhereToUserShops(user, where)` for reads and `assertShopAccess(user, shopId)` for single-shop writes), not a database concern. Adding shop-scoping to RLS would couple the policy to per-request user state, which RLS isn't designed for.
 
 6. **Show the SQL preview** and ask the user to confirm before applying.
 
 7. **Apply the migration:**
+
    ```bash
    npx prisma migrate deploy
    ```
@@ -84,6 +92,7 @@ Append RLS policies and role grants for an existing tenant-scoped table.
 ## Audit checklist
 
 Before declaring RLS active on `$1`:
+
 - [ ] `company_id` is `NOT NULL`
 - [ ] Zero orphan rows (rows with `company_id IS NULL`)
 - [ ] RLS is enabled and forced
@@ -101,6 +110,7 @@ Before declaring RLS active on `$1`:
 ## Hand-off
 
 After RLS is active, notify `backend-engineer` so they can:
+
 - Verify their service methods work correctly with RLS enforcement
 - Remove any manual `where: { companyId: ... }` filters (RLS now handles them)
 - Run integration testing manually (no automated tests yet) to confirm queries return expected results

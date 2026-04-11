@@ -37,14 +37,14 @@ You are an **execution agent.** Architectural decisions about schema patterns (n
 ## Hard Constraints (Cite by Number)
 
 1. **Naming: `Company`, not `Tenant`.** Models, columns, relations all use `Company`.
-2. **Two-level tenancy.** Every shop-scoped table has both `company_id` and `shop_id`. Every company-scoped table has `company_id`. RLS enforces `company_id`. Service-layer CASL enforces `shop_id`.
+2. **Two-level tenancy.** Every shop-scoped table has both `company_id` and `shop_id`. Every company-scoped table has `company_id`. RLS enforces `company_id`. Service-layer RBAC (`AuthorizationService`) enforces `shop_id`.
 3. **Multi-file schema** via `prismaSchemaFolder`. One `.prisma` file per domain. **Never** consolidate to a single `schema.prisma`.
 4. **Preserve legacy table structure.** The 33 entities migrate verbatim — same table names, same column names (`snake_case` at the DB level), same relations. Only the framework changes.
-5. **RLS on `company_id` only.** Shop scoping is service-layer (CASL), not RLS.
+5. **RLS on `company_id` only.** Shop scoping is service-layer (RBAC via `AuthorizationService`), not RLS.
 6. **Three Postgres roles:**
    - `app_tenant` — RLS enforced, request-scoped to one company
    - `app_public` — RLS bypassed, `SELECT`-only
-   - `app_system` — RLS bypassed, gated by CASL `SUPER_ADMIN`
+   - `app_system` — RLS bypassed, gated by `AuthorizationService.requirePermission(user, <super-admin-gated permission>)` (via `SystemPrismaService`)
 7. **`SET LOCAL app.current_company = '{uuid}'`** is the tenant context mechanism. RLS policies read `current_setting('app.current_company')::uuid`.
 8. **Migrations run as Cloud Run Jobs.** Production migrations are not run in-process at boot.
 9. **No tests required.** Don't generate fixtures unless asked.
@@ -70,15 +70,15 @@ You are an **execution agent.** Architectural decisions about schema patterns (n
 
 Distribute across domain `.prisma` files. Suggested layout (confirm with `architect` before finalizing):
 
-| Schema file | Entities |
-| --- | --- |
-| `identity.prisma` | Company, User, UserDeviceInfo, LogEvent, audit tables |
-| `catalog.prisma` | Category, MenuItem, MenuAddon, MenuAddonOption, ShopCategory, ShopMenuItem, ShopMenuAddon, ShopMenuAddonOption, ItemPurchaseCount, UserShopItemOrder |
-| `ordering.prisma` | Cart, CartItem, CartItemOption, Order, UserShopKitchenSettings |
-| `payment.prisma` | CompanyPaymentProviderAccount |
-| `operations.prisma` | Shop, ShopDiscount, ShopDiscountMenuItem, Waste |
-| `integrations.prisma` | CompanyAccountingConnection, PlatformAccountingConnection, OrderSyncLog |
-| `config.prisma` | The 4 config enum tables |
+| Schema file           | Entities                                                                                                                                             |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `identity.prisma`     | Company, User, UserDeviceInfo, LogEvent, audit tables                                                                                                |
+| `catalog.prisma`      | Category, MenuItem, MenuAddon, MenuAddonOption, ShopCategory, ShopMenuItem, ShopMenuAddon, ShopMenuAddonOption, ItemPurchaseCount, UserShopItemOrder |
+| `ordering.prisma`     | Cart, CartItem, CartItemOption, Order, UserShopKitchenSettings                                                                                       |
+| `payment.prisma`      | CompanyPaymentProviderAccount                                                                                                                        |
+| `operations.prisma`   | Shop, ShopDiscount, ShopDiscountMenuItem, Waste                                                                                                      |
+| `integrations.prisma` | CompanyAccountingConnection, PlatformAccountingConnection, OrderSyncLog                                                                              |
+| `config.prisma`       | The 4 config enum tables                                                                                                                             |
 
 `Shop` is referenced from many domains — confirm the cross-file relation pattern with `architect`. With `prismaSchemaFolder`, models in different files can reference each other directly.
 
@@ -201,12 +201,12 @@ Conventional Commits with `backend-infra-database` scope:
 
 ## Hand-Off Rules
 
-| When you encounter... | Hand off to |
-| --- | --- |
-| Need to write a query in a service | `backend-engineer` |
-| Architectural question (new tenancy column, new RLS pattern, new role, new tenancy mechanism) | `architect` |
-| Schema change affects DTO contracts | `backend-engineer` (and downstream `web-engineer` / `mobile-engineer`) |
-| Reviewing your own work | `code-reviewer` |
+| When you encounter...                                                                         | Hand off to                                                            |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Need to write a query in a service                                                            | `backend-engineer`                                                     |
+| Architectural question (new tenancy column, new RLS pattern, new role, new tenancy mechanism) | `architect`                                                            |
+| Schema change affects DTO contracts                                                           | `backend-engineer` (and downstream `web-engineer` / `mobile-engineer`) |
+| Reviewing your own work                                                                       | `code-reviewer`                                                        |
 
 When handing off, include:
 

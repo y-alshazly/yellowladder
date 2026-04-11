@@ -11,9 +11,11 @@ allowed-tools: Bash(npx nx *), Read, Write, Edit, Glob
 Use this skill to create a new web feature lib at `libs/web/{domain}/`.
 
 **Arguments:**
+
 - `$1` — domain name (one of: `identity`, `catalog`, `ordering`, `payment`, `operations`, `integrations`)
 
 **Pre-flight checks:**
+
 - Confirm `libs/web/$1/` does not already exist
 - Yellow Ladder web is **backoffice only** — no public web app exists
 - Confirm `$1` matches one of the 6 backend domains
@@ -21,6 +23,7 @@ Use this skill to create a new web feature lib at `libs/web/{domain}/`.
 ## Steps
 
 1. **Generate the Nx lib:**
+
    ```bash
    npx nx g @nx/react:library libs/web/$1 \
      --tags="type:web,platform:web" \
@@ -28,6 +31,7 @@ Use this skill to create a new web feature lib at `libs/web/{domain}/`.
      --no-interactive \
      --unitTestRunner=none
    ```
+
    `--unitTestRunner=none` because tests are deferred during the refactor.
 
 2. **Clean up generated files:**
@@ -48,6 +52,7 @@ Use this skill to create a new web feature lib at `libs/web/{domain}/`.
 4. **Create the barrel** at `src/index.ts` that re-exports from each sub-domain folder.
 
 5. **Verify `project.json` tags:**
+
    ```json
    {
      "tags": ["type:web", "platform:web"]
@@ -65,15 +70,16 @@ Use this skill to create a new web feature lib at `libs/web/{domain}/`.
 - **File naming:** `kebab-case` with type suffix (`menu-item-list.component.tsx`, `use-cart.hook.ts`, etc.)
 - **No `src/lib/`** — flat `src/`
 - **2+ files of the same suffix → group into a subdirectory** (e.g., `components/` when 2+ `.component.tsx` files exist)
-- **MUI 7 only** — never Tailwind, never CSS modules
+- **MUI 7 only** — never Tailwind, never CSS modules. **LTR only** — do not create an RTL cache provider, do not install `stylis-plugin-rtl`, do not set `dir="rtl"`.
 - **React Hook Form + Zod** for forms, schemas co-located as `{action}-{entity}.schema.ts`
-- **`useTranslation()`** for all user-facing strings, ICU plurals for Arabic
-- **CASL UI gating** via `<CanAction>` and `<CanField>` from `@yellowladder/shared-web-ui`
-- **Locale-prefixed routes:** `/(en|ar)/...`
+- **`useTranslation()`** for all user-facing strings. Yellow Ladder supports `en` (default), `de`, `fr` — update all three catalogs (`en.json`, `de.json`, `fr.json`) in the same commit.
+- **RBAC UI gating** via `<HasPermission permission={Permissions.XxxYyy}>` or the `useHasPermission(Permissions.XxxYyy)` hook from `@yellowladder/shared-web-ui`. Import `Permissions` from `@yellowladder/shared-types`.
+- **Locale-prefixed routes:** `/(en|de|fr)/...`
 
 ## Lib boundary enforcement
 
 This lib may import from:
+
 - `@yellowladder/shared-api`
 - `@yellowladder/shared-store`
 - `@yellowladder/shared-web-ui`
@@ -82,6 +88,7 @@ This lib may import from:
 - `@yellowladder/shared-i18n`
 
 It may **NOT** import from:
+
 - `@yellowladder/backend-*`
 - `@yellowladder/mobile-*`
 - `@yellowladder/shared-mobile-ui`

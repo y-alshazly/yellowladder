@@ -11,6 +11,7 @@ allowed-tools: Read, Grep, Glob
 Audit a backend lib for multi-tenancy correctness against `.claude/rules/architecture.md` §Multi-Tenancy.
 
 **Argument:**
+
 - `$1` — lib path (e.g., `libs/backend/catalog/menu-items`) or short name
 
 ## Pre-flight checks
@@ -27,7 +28,7 @@ Apply each check and report findings as **CRITICAL** (data leakage risk) or **WA
 
 - [ ] Repository injects `PrismaService` (default tenant-scoped) — OK
 - [ ] If repository injects `SystemPrismaService`:
-  - **CRITICAL** if the corresponding service does NOT call `requirePermission(ability, '*', '*')` with a `SUPER_ADMIN`-level check
+  - **CRITICAL** if the corresponding service does NOT call `requirePermission(user, Permissions.PlatformManage)` (or the equivalent `SUPER_ADMIN`-gated permission) at the top of every method that uses it
   - **WARNING** if the SUPER_ADMIN check is implicit and unclear
 - [ ] If repository uses `prisma.$queryRaw` or `$executeRaw`:
   - **CRITICAL** if the raw query references a multi-tenant table without `WHERE company_id = ...`
@@ -37,13 +38,22 @@ Apply each check and report findings as **CRITICAL** (data leakage risk) or **WA
 
 - [ ] Service files MUST NOT contain `where: { companyId }` or `where: { company_id }` filters
   - **CRITICAL** if found — RLS handles this; manual filtering may interfere with RLS
-  - Exception: explicit cross-company queries via `SystemPrismaService` (must be CASL-gated)
+  - Exception: explicit cross-company queries via `SystemPrismaService` (must be RBAC-gated by `requirePermission` on a `SUPER_ADMIN`-only permission)
 
-### 3. Shop scoping (CASL service-layer enforcement)
+### 3. Shop scoping (RBAC service-layer enforcement)
 
-- [ ] For shop-scoped queries, the service must include `shopId: { in: user.shopIds }` OR use a base service helper
-- [ ] **WARNING** if the service references `shopId` without scoping to `user.shopIds`
-- [ ] **WARNING** if the service queries shop-scoped data and the query is missing the shop filter entirely
+Shop scoping is enforced **explicitly** in service code using `AuthorizationService` helpers — there is no implicit CASL rule merging. Every shop-scoped query must either:
+
+- build its `where` via `scopeWhereToUserShops(user, baseWhere)` (for list/read), which injects `shopId: { in: user.shopIds }` when the user is a `SHOP_MANAGER` / `EMPLOYEE` and leaves it unconstrained for `COMPANY_ADMIN` / `SUPER_ADMIN`, OR
+- call `assertShopAccess(user, shopId)` before any single-shop write, which throws `ForbiddenException` if the shop isn't in `user.shopIds`.
+
+Checks:
+
+- [ ] Shop-scoped read/list methods call `scopeWhereToUserShops(user, ...)` (NOT the removed CASL helpers `mergeConditionsIntoWhere` / `accessibleBy`)
+- [ ] Shop-scoped write/update/delete methods call `assertShopAccess(user, shopId)` before the repository call
+- [ ] **WARNING** if a service references `shopId` without either helper
+- [ ] **WARNING** if a service queries shop-scoped data and the query is missing the shop filter entirely
+- [ ] **WARNING** if the service still imports or calls the removed CASL APIs (`AppAbility`, `accessibleBy`, `mergeConditionsIntoWhere`, `ensureFieldsPermitted`, `pickPermittedFields`, `ensureConditionsMet`)
 
 ### 4. RLS coverage
 
@@ -72,9 +82,9 @@ Apply each check and report findings as **CRITICAL** (data leakage risk) or **WA
 ### 7. SUPER_ADMIN protection
 
 - [ ] If the lib uses `SystemPrismaService`:
-  - The service that consumes it must verify `ability.can('Manage', 'all')` or equivalent SUPER_ADMIN check
-  - The service file must NOT be exposed to non-SUPER_ADMIN code paths
-  - **CRITICAL** if SystemPrismaService is injected without CASL guard
+  - The service that consumes it must call `requirePermission(user, Permissions.PlatformManage)` (or the equivalent `SUPER_ADMIN`-only permission) at the top of every method that uses it
+  - The service file must NOT be exposed to non-`SUPER_ADMIN` code paths
+  - **CRITICAL** if `SystemPrismaService` is injected without an RBAC `requirePermission` guard on a `SUPER_ADMIN`-only permission
 
 ## Output format
 
@@ -87,8 +97,8 @@ Apply each check and report findings as **CRITICAL** (data leakage risk) or **WA
   Fix: Remove `where: { companyId }`. RLS will scope automatically via PrismaService Proxy.
 
 - libs/backend/.../src/...repository.ts:18
-  Issue: SystemPrismaService injected, but the corresponding service has no `requirePermission('Manage', 'all')` check.
-  Fix: Add CASL ability check at the top of every service method that uses SystemPrismaService.
+  Issue: SystemPrismaService injected, but the corresponding service has no `requirePermission(user, Permissions.PlatformManage)` check.
+  Fix: Add `requirePermission(user, Permissions.PlatformManage)` at the top of every service method that uses SystemPrismaService.
 
 ## WARNING (Incorrect pattern, no leakage)
 - libs/backend/catalog/menu-items/src/menu-items.service.ts:74
@@ -115,6 +125,7 @@ Apply each check and report findings as **CRITICAL** (data leakage risk) or **WA
 ## Hand-off
 
 After the audit:
+
 - CRITICAL findings → escalate immediately to the engineer who wrote the code
 - WARNING findings → file as PR review comments
 - If schema-level issues are found (missing RLS policy, nullable companyId), hand off to `database-engineer`

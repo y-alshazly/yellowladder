@@ -10,6 +10,8 @@ paths:
 
 # Mobile Conventions (React Native + Paper)
 
+> **Scope reminder:** `apps/mobile-backoffice` is the **sole active frontend** for Yellow Ladder. It runs on **phones AND tablets** (iPad, Android tablets) and the UI must be **fully responsive** across all device classes and orientations. The POS and Kitchen Display screens are tablet-primary. See §Responsive Layout below.
+
 ## File Naming
 
 Same `kebab-case.{suffix}.ts(x)` convention as web, with one addition:
@@ -37,7 +39,7 @@ All other suffixes (`.schema.ts`, `.slice.ts`, `.api.ts`, etc.) are the same as 
 - Feature libs import standard components directly from `react-native-paper`. **No wrapper layer.**
 - `shared/mobile-ui` provides: Paper theme configuration (MD3 with Yellow Ladder brand colors, fonts, roundness), `PaperProvider` setup, and custom composite components that don't exist in Paper (e.g., `OrderCard`, `KitchenTile`).
 - **Paper components first.** Reach for `Button`, `TextInput`, `Card`, `List`, `DataTable`, `Chip`, etc. from `react-native-paper` before writing custom primitives.
-- RTL is automatic — Paper reads `I18nManager.isRTL`. The app shell calls `I18nManager.forceRTL(true)` when locale is `ar`, then triggers a reload.
+- **LTR only.** Yellow Ladder supports `en`, `de`, `fr`. Do NOT call `I18nManager.forceRTL` or read `I18nManager.isRTL`. Paper's built-in RTL handling stays dormant because the app never runs in RTL mode.
 - Enable Paper's Babel plugin for tree-shaking to avoid bundling unused components.
 - Requires `react-native-vector-icons` as a peer dependency.
 
@@ -46,15 +48,62 @@ All other suffixes (`.schema.ts`, `.slice.ts`, `.api.ts`, etc.) are the same as 
 - Reuse RTK Query hooks and Redux slices from `shared/api` and `shared/store`. **Do not duplicate.**
 - Forms use Zod for validation, same as web.
 - **Refresh token in `react-native-keychain`.** Access token in-memory only.
-- **Online-only.** No SQLite, no offline POS, no sync conflict resolution. Zustand-persisted preferences (auth token, language) are the only local state outside Redux.
+- **Online-only.** No SQLite, no offline POS, no sync conflict resolution. Persisted preferences (auth token, selected locale from `en`/`de`/`fr`) live in `AsyncStorage` / `react-native-keychain` — not Zustand, not MMKV, not Redux-persist.
 
 ## Navigation
 
 - **React Navigation native stack** for the primary navigator.
-- **Tab navigators** for major sections (POS, Kitchen, Menu, Settings).
+- **Device-aware root navigator:** phones use a **bottom tab navigator** for major sections (POS, Kitchen, Menu, Settings); tablets use a **permanent drawer navigator** (drawer is always visible on tablets, collapsible on phones). The choice is made once at mount time based on device class from `useDeviceClass()` (see §Responsive Layout).
 - **Auth flow** lives outside the main navigator and conditionally renders based on auth state.
 - **Deep linking** is configured in `apps/mobile-backoffice/src/navigation/linking.config.ts`.
 - **Type-safe navigation** via `RootStackParamList` and `useNavigation<NativeStackNavigationProp<RootStackParamList>>`.
+
+## Responsive Layout (Phone + Tablet)
+
+`apps/mobile-backoffice` targets four device classes and both orientations. The UI MUST render correctly on every combination.
+
+### Device Classes and Breakpoints
+
+Breakpoints are based on the smallest dimension (`min(width, height)`):
+
+| Device class   | smallest dimension | Typical devices                  | Primary layout                         |
+| -------------- | ------------------ | -------------------------------- | -------------------------------------- |
+| `phone`        | `< 600`            | iPhone, small Android phones     | Single column, bottom tabs             |
+| `tablet`       | `600` – `899`      | iPad mini, 8–10" Android tablets | Two-column where useful, drawer nav    |
+| `large-tablet` | `≥ 900`            | iPad Pro, 12"+ Android tablets   | Full tablet layout, multi-pane allowed |
+
+Orientation is derived from `width > height` at render time.
+
+### Canonical Hook
+
+`useDeviceClass()` (in `libs/shared/mobile-ui/src/hooks/`) returns `{ deviceClass, orientation, width, height }` by wrapping `useWindowDimensions()`. Use it — do NOT call `Dimensions.get()` (non-reactive) or check `Platform.isPad` (iOS-only).
+
+```tsx
+import { useDeviceClass } from '@yellowladder/shared-mobile-ui';
+
+function PosScreen() {
+  const { deviceClass, orientation } = useDeviceClass();
+  if (deviceClass === 'phone') return <PosPhoneLayout />;
+  return <PosTabletLayout orientation={orientation} />;
+}
+```
+
+### Layout Rules
+
+- **Never hardcode pixel widths.** Use flex, `%`, or tokens from the Paper theme. Hardcoded widths break on the next device class.
+- **Tablet-primary screens** (POS, Kitchen Display, Orders, Waste list) MUST be designed tablet-first in Figma and degrade to a single-column phone layout. The tablet layout is the reference; the phone layout is the fallback.
+- **Phone-primary screens** (Login, OTP, Profile, Settings forms) use a single column that stretches to fit tablet with max-width padding so form fields don't become absurdly wide.
+- **Master-detail pattern on tablets:** list-and-edit flows (e.g., Team members, Discounts, Categories) render as a split view on tablets (list left, detail right) and fall back to stack navigation on phones.
+- **Modals vs full-screen:** forms open as modals on tablets (centered overlay with max-width) and as full-screen stack screens on phones. Use the Paper `Modal` / `Dialog` or React Navigation's `presentation: 'modal'` accordingly.
+- **Safe area:** wrap every screen in `<SafeAreaView>` from `react-native-safe-area-context`. Respect notches, Dynamic Island, and Android system bars.
+- **Keyboard handling:** forms use `KeyboardAvoidingView` (`behavior="padding"` on iOS, `"height"` on Android).
+- **Orientation:** both portrait and landscape are supported everywhere. Test both. Tablet landscape is the **default** orientation for POS, Kitchen Display, and Orders list.
+
+### Native Config for Tablets
+
+- **iOS:** `Info.plist` must set `UIDeviceFamily` to `[1, 2]` (iPhone + iPad) or remove the key for universal. Enable orientation entries for portrait AND landscape left/right in `UISupportedInterfaceOrientations` and `UISupportedInterfaceOrientations~ipad`.
+- **Android:** `AndroidManifest.xml` Activity must declare `android:screenOrientation="unspecified"` (or `fullSensor`) and `android:resizeableActivity="true"`. Add `<supports-screens android:largeScreens="true" android:xlargeScreens="true" />`.
+- **Do NOT lock the app to portrait only.** POS users rotate their tablets.
 
 ## Component Conventions
 
@@ -62,7 +111,7 @@ All other suffixes (`.schema.ts`, `.slice.ts`, `.api.ts`, etc.) are the same as 
 - **Props interfaces** named `{Component}Props` and exported.
 - **Theme tokens** for colors and spacing — never hardcode hex values or magic numbers.
 - **Platform-specific code** uses `Platform.select()` or `.ios.tsx` / `.android.tsx` file extensions.
-- **i18n keys** for every user-visible string. No hardcoded English/Arabic in components.
+- **i18n keys** for every user-visible string. No hardcoded English/German/French in components — use `useTranslation()`.
 
 ## Stripe Terminal Tap-to-Pay
 
@@ -99,50 +148,53 @@ libs/mobile/ordering/src/
     use-kitchen-socket.hook.ts            # Single hook → flat
 ```
 
-## Authorization UI (CASL)
+## Authorization UI (RBAC)
 
-Mobile uses the same CASL authorization pattern as web. The user's ability is synced via `useAbilitySync` hook (periodic polling + app foreground refetch). Two components from `@yellowladder/shared-mobile-ui` gate UI elements.
+Mobile uses the same RBAC model as web. The user's `role` + flattened `permissions: Permission[]` list comes from the `/api/v1/auth/me` endpoint and is stored in the shared Redux auth slice (`@yellowladder/shared-store`). A single component — `HasPermission` — and its hook counterpart — `useHasPermission` — from `@yellowladder/shared-mobile-ui` gate UI elements. Permission strings are imported from `@yellowladder/shared-types` (`Permissions` const object, identical to web and backend).
 
-The 5 user tiers (`SUPER_ADMIN`, `COMPANY_ADMIN`, `SHOP_MANAGER`, `EMPLOYEE`, `CUSTOMER`) determine which actions and fields are available.
+The 5 user tiers (`SUPER_ADMIN`, `COMPANY_ADMIN`, `SHOP_MANAGER`, `EMPLOYEE`, `CUSTOMER`) determine which permissions the user holds.
 
-### `CanAction` — Action Buttons
+### `HasPermission` — Gating Any Element
 
-Wraps buttons. Hides the child by default if the user lacks permission. Use `mode="disable"` on submit buttons inside forms.
+Wraps any child element. Hides by default if the user lacks the permission; switch to `mode="disable"` to keep the element visible but inert (useful for submit buttons inside forms).
 
 ```tsx
-import { CanAction } from '@yellowladder/shared-mobile-ui';
+import { HasPermission } from '@yellowladder/shared-mobile-ui';
+import { Permissions } from '@yellowladder/shared-types';
 
-<CanAction action="Create" subject="Order">
+<HasPermission permission={Permissions.OrdersCreate}>
   <Button onPress={handleCreate}>{t('ordering.create')}</Button>
-</CanAction>
+</HasPermission>
 
-<CanAction action="Update" subject="MenuItem" mode="disable">
+<HasPermission permission={Permissions.MenuItemsUpdate} mode="disable">
   <Button onPress={handleSave}>{t('common.save')}</Button>
-</CanAction>
+</HasPermission>
 ```
 
-### `CanField` — Form Fields
+### Field-Level Gating
 
-Wraps individual form fields. Disables the field if the user lacks permission for that field.
+No automatic helper — use the imperative hook:
 
 ```tsx
-import { CanField } from '@yellowladder/shared-mobile-ui';
+import { useHasPermission } from '@yellowladder/shared-mobile-ui';
+import { Permissions } from '@yellowladder/shared-types';
 
-<CanField action="Update" subject="MenuItem" field="basePrice">
-  <TextInput
-    label={t('catalog.menuItems.basePrice')}
-    value={basePrice}
-    onChangeText={setBasePrice}
-  />
-</CanField>;
+const canEditPrice = useHasPermission(Permissions.MenuItemsUpdatePrice);
+
+<TextInput
+  label={t('catalog.menuItems.basePrice')}
+  value={basePrice}
+  editable={canEditPrice}
+  onChangeText={setBasePrice}
+/>;
 ```
 
 ### Rules
 
-- Every action button in backoffice screens must be wrapped in `<CanAction>`.
-- Every form field in backoffice forms must be wrapped in `<CanField>`.
-- Action and subject names match the backend CASL action/resource names exactly.
-- For forms that serve both create and edit, use `action={isEdit ? 'Update' : 'Create'}`.
+- Every action button in backoffice screens must be wrapped in `<HasPermission>`.
+- Permission strings come from the shared `Permissions` const — never hardcode `'menu-items:create'`.
+- For forms that serve both create and edit, compute the required permission once at the top of the component.
+- **Client gating is UX only.** It hides buttons the user cannot use; it never grants access. The backend always re-checks the same permission via `AuthorizationService.requirePermission()`.
 
 ## Realtime (Kitchen WebSocket)
 
@@ -152,10 +204,10 @@ The WebSocket client lives in a hook in `mobile-ordering` and dispatches updates
 
 ## i18n
 
-- When creating new UI, add both `en.json` and `ar.json` entries in the same pass.
-- Arabic has 6 plural forms. Use ICU message format.
-- Same translation files as web: `libs/shared/i18n/src/messages/en.json` and `ar.json`.
-- RTL toggle: `I18nManager.forceRTL(true)` for Arabic, then app reload via `Updates` (or manual restart). Handled by the `LocaleProvider` in the app shell.
+- When creating new UI, add `en.json`, `de.json`, and `fr.json` entries **in the same commit**. The `audit-translations` skill validates every key exists in all three catalogs.
+- Plural rules for `en`, `de`, `fr` are the simple `{one, other}` ICU pattern. ICU message format is still used for interpolation, gender, and nested plurals.
+- Same translation files as web: `libs/shared/i18n/src/messages/en.json`, `de.json`, `fr.json`.
+- **LTR only.** Do NOT call `I18nManager.forceRTL` or branch on `I18nManager.isRTL`. The app never runs in RTL mode.
 
 ## Lib Boundaries
 

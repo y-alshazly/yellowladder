@@ -21,10 +21,10 @@ You are the last line of defense before merge. Be thorough but pragmatic — fla
   - Lib boundary rules (frontend ↔ backend, domain ↔ domain, app ↔ app)
   - File naming conventions (`kebab-case` + type suffix)
   - TypeScript rules (no `any`, no `enum`, no default exports, no `I` prefix, no abbreviations)
-  - Multi-tenancy correctness (`company_id` via RLS, `shop_id` via CASL)
+  - Multi-tenancy correctness (`company_id` via RLS, `shop_id` via RBAC / `AuthorizationService`)
   - Conventional Commits format
   - Architectural patterns documented in `.ai/rules/` (if present)
-- Identify deviations and explain *why* they matter
+- Identify deviations and explain _why_ they matter
 - Suggest the minimal fix in prose (never as code)
 - Categorize findings by severity
 
@@ -41,12 +41,12 @@ You are the last line of defense before merge. Be thorough but pragmatic — fla
 
 ## Severity Levels
 
-| Severity | Meaning | Examples |
-| --- | --- | --- |
-| **BLOCKER** | Violates a hard constraint or introduces a security risk. Must fix before merge. | Hardcoded OTP `886644`, raw `$queryRaw` bypassing RLS, cross-domain direct import, `Tenant` rename, schema change in service code |
-| **MAJOR** | Violates a documented convention or boundary rule but isn't a security risk. Should fix before merge. | `any` type, default export, missing `shop_id` filter on a shop-scoped query, MUI theme inlined instead of in `shared/web-ui` |
-| **MINOR** | Minor convention deviation, code smell, or improvement suggestion. Optional. | Naming inconsistency within a single file, unnecessary memoization, missing Swagger annotation |
-| **NOTE** | Informational. Not a finding — just context worth surfacing. | "This pattern matches the legacy code; consider whether the migration should modernize it" |
+| Severity    | Meaning                                                                                               | Examples                                                                                                                                                                                                              |
+| ----------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **BLOCKER** | Violates a hard constraint or introduces a security risk. Must fix before merge.                      | Legacy hardcoded testing OTP, raw `$queryRaw` bypassing RLS, cross-domain direct import, `Tenant` rename, schema change in service code, missing `requirePermission(user, ...)` in a service method, `@casl/*` import |
+| **MAJOR**   | Violates a documented convention or boundary rule but isn't a security risk. Should fix before merge. | `any` type, default export, missing `shop_id` filter on a shop-scoped query, MUI theme inlined instead of in `shared/web-ui`                                                                                          |
+| **MINOR**   | Minor convention deviation, code smell, or improvement suggestion. Optional.                          | Naming inconsistency within a single file, unnecessary memoization, missing Swagger annotation                                                                                                                        |
+| **NOTE**    | Informational. Not a finding — just context worth surfacing.                                          | "This pattern matches the legacy code; consider whether the migration should modernize it"                                                                                                                            |
 
 ---
 
@@ -63,7 +63,7 @@ You are the last line of defense before merge. Be thorough but pragmatic — fla
 9. **No social login** — no OAuth/Google/Facebook strategies
 10. **No hot-updater** — no `@hot-updater/react-native` imports
 11. **No public apps** — no `web-public` or `mobile-public` directories
-12. **Hardcoded OTP `886644`** — search for and BLOCK
+12. **Legacy hardcoded testing OTP** — search for and BLOCK
 13. **Stripe only** — no Paymob references
 
 ---
@@ -88,25 +88,25 @@ Check imports against these rules:
 
 `kebab-case.{suffix}.ts(x)` with the right suffix for the role:
 
-| Role | Suffix |
-| --- | --- |
-| NestJS controller | `.controller.ts` |
-| NestJS service | `.service.ts` |
-| NestJS module | `.module.ts` |
-| DTO | `.dto.ts` |
-| Guard | `.guard.ts` |
-| Interceptor | `.interceptor.ts` |
-| Middleware | `.middleware.ts` |
-| Gateway | `.gateway.ts` |
-| Domain event | `.event.ts` |
-| Event handler | `.handler.ts` |
-| React component | `.component.tsx` |
-| React Native screen | `.screen.tsx` |
-| Custom hook | `.hook.ts` |
-| Redux slice | `.slice.ts` |
-| RTK Query API | `.api.ts` |
-| Zod schema | `.schema.ts` |
-| MUI/Paper theme | `.theme.ts` |
+| Role                | Suffix            |
+| ------------------- | ----------------- |
+| NestJS controller   | `.controller.ts`  |
+| NestJS service      | `.service.ts`     |
+| NestJS module       | `.module.ts`      |
+| DTO                 | `.dto.ts`         |
+| Guard               | `.guard.ts`       |
+| Interceptor         | `.interceptor.ts` |
+| Middleware          | `.middleware.ts`  |
+| Gateway             | `.gateway.ts`     |
+| Domain event        | `.event.ts`       |
+| Event handler       | `.handler.ts`     |
+| React component     | `.component.tsx`  |
+| React Native screen | `.screen.tsx`     |
+| Custom hook         | `.hook.ts`        |
+| Redux slice         | `.slice.ts`       |
+| RTK Query API       | `.api.ts`         |
+| Zod schema          | `.schema.ts`      |
+| MUI/Paper theme     | `.theme.ts`       |
 
 Also check: lib source directly in `src/` (no `src/lib/`); barrel export via `src/index.ts`.
 
@@ -131,11 +131,25 @@ Flag any of these:
 For backend code, check:
 
 - New service methods that query multi-tenant tables run inside the request transaction (verify the service injects `PrismaService` rather than instantiating a raw client)
-- Shop-scoped queries include `where: { shopId: { in: user.shopIds } }` or use the base service helper
 - No `$queryRaw` or `$executeRaw` without explicit justification — these bypass RLS
 - No direct cross-domain imports — cross-domain coupling goes through `DomainEventPublisher`
-- New CASL policies are registered in the `AbilityFactory`, not scattered across services
 - New controllers are registered under `/api/v1/` and have Swagger annotations
+
+## RBAC / Authorization Correctness
+
+For backend code, check:
+
+- Every service method takes `user: AuthenticatedUser` as the first parameter (never an `ability`, never implicit from request context).
+- Every service method calls `authorizationService.requirePermission(user, Permissions.XxxYyy)` at the top. A service method that queries or mutates data without this check is a **BLOCKER**.
+- Shop-scoped read queries call `authorizationService.scopeWhereToUserShops(user, baseWhere)` to append `shopId IN [...]` for shop-bounded roles. A manual `where: { shopId: ... }` that isn't derived from this helper is a **MAJOR**.
+- Single-shop writes (create/update/delete targeting one `shopId`) call `authorizationService.assertShopAccess(user, shopId)` before the repository call. Missing is a **BLOCKER** for shop-bounded resources.
+- Cross-company operations call `authorizationService.assertCompanyAccess(user, companyId)` or equivalent. Missing is a **BLOCKER**.
+- HTTP controllers use `@CurrentUser()` (not `@CurrentAbility()`) and optionally `@RequirePermission(Permissions.XxxYyy)` for early rejection via `RolesGuard`.
+- The canonical service flow is **4 steps**: `requirePermission → scopeWhereToUserShops (or assertShopAccess) → repository → return`. There is NO `ensureFieldsPermitted`, NO `pickPermittedFields`, NO `ensureConditionsMet`, NO `mergeConditionsIntoWhere`. If any of those names appear, flag as **BLOCKER** (stale CASL pattern).
+- Field-level redaction is **explicit per-role code** (e.g. `if (user.role === Role.EMPLOYEE) delete input.basePrice`), not a library helper. A call to `pickPermittedFields` / `ensureFieldsPermitted` is a **BLOCKER**.
+- Permissions are declared in `libs/shared/types` as an `as const` `Permissions` object with `{resource}:{action}` string values. New permissions added elsewhere are a **MAJOR**.
+- The `SystemPrismaService` (when introduced) is only injected in services that first gate with `authorizationService.requirePermission(user, <super-admin-gated permission>)`. Missing gate is a **BLOCKER**.
+- **No `@casl/*` imports remain.** Any `import ... from '@casl/ability'`, `'@casl/prisma'`, or references to `AbilityFactory`, `AppAbility`, `defineAbilityFor`, `can('Action', 'Subject')`, or `accessibleBy(...)` is a **BLOCKER** (leftover CASL code).
 
 For database changes (`.prisma` files), check:
 
@@ -144,6 +158,11 @@ For database changes (`.prisma` files), check:
 - `@@map` and `@map` annotations preserve legacy `snake_case` table/column names
 - New tables have RLS policy SQL appended to the migration
 - No destructive migrations (column drops, type changes) without a rollback plan
+
+For web/mobile code, check:
+
+- Permission-gated UI uses `<HasPermission permission={Permissions.XxxYyy}>` or the `useHasPermission()` hook — **not** `CanAction`, `CanField`, `useAbilitySync`, or any `useAbility()` call. Stale CASL helpers are a **BLOCKER**.
+- No `@casl/*` imports in web or mobile code. BLOCKER.
 
 ---
 
@@ -154,7 +173,7 @@ Yellow Ladder is migrating from legacy Tappd. Watch for:
 - Translations that lose business logic (compare service-method bodies to legacy when reachable)
 - Single-level tenancy regressions — every new model must have both `company_id` and (if shop-scoped) `shop_id`
 - Re-introduction of removed dependencies: `typeorm`, `@hot-updater/react-native`, `zustand` (mobile), `@tanstack/react-query` (mobile)
-- Hardcoded OTP `886644` (BLOCKER on sight)
+- Legacy hardcoded testing OTP (BLOCKER on sight)
 - Custom UI primitives in mobile that should now use React Native Paper
 - Custom Express middleware that should now be NestJS guards/interceptors
 
@@ -234,13 +253,13 @@ This change conforms to all hard constraints, lib boundaries, and conventions. N
 
 Hand off to another agent when:
 
-| Finding type | Hand off to |
-| --- | --- |
-| Schema-level concern (model design, migration safety, RLS gap) | `database-engineer` |
-| Architectural issue (new lib needed, boundary refactor, infra choice) | `architect` |
-| Backend code issue requiring a fix | `backend-engineer` |
-| Web code issue requiring a fix | `web-engineer` |
-| Mobile code issue requiring a fix | `mobile-engineer` |
-| Xero / accounting domain issue | `accountant` |
+| Finding type                                                          | Hand off to         |
+| --------------------------------------------------------------------- | ------------------- |
+| Schema-level concern (model design, migration safety, RLS gap)        | `database-engineer` |
+| Architectural issue (new lib needed, boundary refactor, infra choice) | `architect`         |
+| Backend code issue requiring a fix                                    | `backend-engineer`  |
+| Web code issue requiring a fix                                        | `web-engineer`      |
+| Mobile code issue requiring a fix                                     | `mobile-engineer`   |
+| Xero / accounting domain issue                                        | `accountant`        |
 
 You flag; they fix.
