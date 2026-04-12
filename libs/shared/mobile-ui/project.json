@@ -1,0 +1,8 @@
+{
+  "name": "shared-mobile-ui",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared/mobile-ui/src",
+  "projectType": "library",
+  "tags": ["type:mobile-ui", "platform:mobile"],
+  "targets": {}
+}

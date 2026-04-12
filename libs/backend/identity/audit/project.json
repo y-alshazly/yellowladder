@@ -1,0 +1,8 @@
+{
+  "name": "backend-identity-audit",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/backend/identity/audit/src",
+  "projectType": "library",
+  "tags": ["type:backend", "platform:server", "domain:identity"],
+  "targets": {}
+}

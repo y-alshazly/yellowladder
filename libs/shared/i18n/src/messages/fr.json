@@ -1,0 +1,285 @@
+{
+  "common": {
+    "appName": "Tappd",
+    "brand": {
+      "headline": "DOMPTEZ LE CHAOS.",
+      "testimonial": "Enfin un système qui tombe juste. J'ai l'impression que Tappd est fait pour moi et mon entreprise.",
+      "attribution": "Susan, KitChef"
+    },
+    "back": "Retour",
+    "goBack": "Retour",
+    "next": "Suivant",
+    "continue": "Continuer",
+    "submit": "Envoyer",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "loading": "Chargement…",
+    "retry": "Réessayer",
+    "close": "Fermer",
+    "yes": "Oui",
+    "no": "Non",
+    "select": "Sélectionner",
+    "somethingWentWrong": "Une erreur s'est produite. Veuillez réessayer."
+  },
+  "auth": {
+    "start": {
+      "selectLanguage": "Choisissez votre langue",
+      "continue": "Continuer"
+    },
+    "welcome": {
+      "createAccount": "Créer un compte",
+      "logIn": "Se connecter"
+    },
+    "login": {
+      "title": "Bon retour",
+      "emailLabel": "Adresse e-mail",
+      "emailPlaceholder": "jane.s@gmail.com",
+      "passwordLabel": "Mot de passe",
+      "passwordPlaceholder": "Mot de passe",
+      "forgotPassword": "Mot de passe oublié ?",
+      "signIn": "Se connecter",
+      "noAccount": "Vous n'avez pas de compte ?",
+      "noAccountPrompt": "Vous n'avez pas de compte ?",
+      "createAccount": "Créer un compte",
+      "invalidCredentials": "L'adresse e-mail ou le mot de passe saisi est incorrect.",
+      "rateLimited": "Trop de tentatives. Veuillez patienter quelques minutes avant de réessayer."
+    },
+    "signup": {
+      "title": "Créez votre compte",
+      "emailLabel": "Adresse e-mail",
+      "phoneLabel": "Téléphone",
+      "phonePlaceholder": "Numéro de mobile",
+      "countryLabel": "Où êtes-vous situé ?",
+      "countryPlaceholder": "Sélectionner",
+      "businessTypeLabel": "Quel type d'entreprise êtes-vous ?",
+      "businessTypePlaceholder": "Sélectionner",
+      "businessType": {
+        "limitedCompany": "Société à responsabilité limitée",
+        "selfEmployed": "Travailleur indépendant"
+      },
+      "passwordLabel": "Mot de passe",
+      "confirmPasswordLabel": "Confirmez le mot de passe",
+      "termsLabel": "J'accepte les",
+      "termsLink": "Conditions générales de Tappd",
+      "duplicateEmail": "Un compte existe déjà avec cette adresse e-mail.",
+      "submit": "Créer un compte"
+    },
+    "verifyEmail": {
+      "title": "Veuillez vérifier votre compte",
+      "subtitle": "Nous avons envoyé un code à {{maskedEmail}}",
+      "resendPrompt": "Pas d'e-mail ?",
+      "resend": "Renvoyer",
+      "expiresIn": "Expire dans {{mmss}}",
+      "invalidCode": "Code incorrect. {{remainingAttempts}} tentatives restantes.",
+      "codeExpired": "Ce code a expiré. Appuyez sur Renvoyer pour en obtenir un nouveau.",
+      "attemptsExceeded": "Trop de tentatives. Appuyez sur Renvoyer pour obtenir un nouveau code.",
+      "rateLimited": "Vous avez demandé trop de codes. Veuillez patienter {{minutes}} minutes.",
+      "verified": "Votre e-mail a été vérifié."
+    },
+    "otp": {
+      "title": "Veuillez vérifier votre compte",
+      "subtitle": "Nous avons envoyé un code à {{maskedEmail}}",
+      "noEmail": "Pas d'e-mail ?",
+      "resend": "Renvoyer"
+    },
+    "forgotPassword": {
+      "title": "Mot de passe oublié ?",
+      "subtitle": "Saisissez l'adresse e-mail associée à votre compte et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
+      "emailLabel": "Adresse e-mail",
+      "submit": "Réinitialiser le mot de passe",
+      "sent": "Si un compte existe pour cet e-mail, nous avons envoyé un lien de réinitialisation."
+    },
+    "resetPassword": {
+      "title": "Réinitialiser votre mot de passe",
+      "subtitle": "Saisissez l'adresse e-mail à laquelle vous souhaitez recevoir le lien de réinitialisation.",
+      "passwordLabel": "Mot de passe",
+      "confirmPasswordLabel": "Confirmer le mot de passe",
+      "submit": "Enregistrer le mot de passe",
+      "tokenInvalid": "Ce lien de réinitialisation n'est plus valide. Veuillez en demander un nouveau.",
+      "tokenExpired": "Ce lien de réinitialisation a expiré. Veuillez en demander un nouveau.",
+      "success": "Votre mot de passe a été mis à jour. Veuillez vous connecter."
+    },
+    "termsAndConditions": {
+      "title": "Conditions générales",
+      "bodyPlaceholder": "Le texte complet des conditions générales sera ici. Cet espace réservé sera remplacé par le texte juridique final avant le lancement.",
+      "accept": "Accepter"
+    },
+    "terms": {
+      "title": "Conditions générales",
+      "intro": "Bienvenue sur Tappd, une plateforme de point de vente conçue pour aider les entreprises à accepter les paiements, à gérer les transactions et à exploiter efficacement leurs opérations. Ces conditions générales (« Conditions ») régissent votre accès à l'application mobile et tablette Tappd, aux services connexes et au site web (collectivement, le « Service »). En créant un compte, en téléchargeant l'application ou en utilisant Tappd, vous acceptez ces Conditions.",
+      "section": {
+        "about": {
+          "title": "1. À propos de Tappd",
+          "body": "Tappd fournit un logiciel qui permet aux commerçants d'accepter et de traiter les paiements, de gérer les transactions de vente, de suivre les stocks et les rapports, et de s'intégrer aux processeurs de paiement et matériels pris en charge. Tappd ne détient ni ne traite directement les fonds, sauf indication contraire, et le traitement des paiements peut être fourni par des partenaires de paiement tiers."
+        },
+        "eligibility": {
+          "title": "2. Éligibilité",
+          "body": "Pour utiliser Tappd, vous devez avoir au moins 18 ans, être légalement habilité à exploiter une entreprise ou à accepter des paiements, et fournir des informations de compte exactes et complètes."
+        }
+      },
+      "iAccept": "J'accepte",
+      "helper": "Veuillez lire attentivement les conditions générales"
+    }
+  },
+  "wizard": {
+    "progress": "Étape {{current}} sur {{total}}",
+    "common": {
+      "address": {
+        "line1": "Ligne d'adresse 1",
+        "line2": "Ligne d'adresse 2",
+        "city": "Ville",
+        "postcode": "Code postal",
+        "region": "Région",
+        "countryCode": "Pays"
+      }
+    },
+    "businessProfile": {
+      "title": "Parlez-nous de votre entreprise",
+      "categoryLabel": "Quelle catégorie décrit le mieux l'utilisation que vous ferez de la caisse ?",
+      "paymentMethodLabel": "Comment souhaitez-vous vendre avec Tappd POS ?",
+      "annualTurnoverLabel": "Quel est votre chiffre d'affaires annuel actuel ?",
+      "vatRegisteredLabel": "Êtes-vous assujetti à la TVA ?",
+      "vatNumberLabel": "Numéro de TVA",
+      "vatNumberPlaceholder": "GB123456789"
+    },
+    "profile": {
+      "title": "Configurez votre profil",
+      "categoryQuestion": "Quelle catégorie décrit le mieux l'utilisation que vous ferez de la caisse ?",
+      "sellModeQuestion": "Comment souhaitez-vous vendre avec Tappd POS ?",
+      "annualTurnoverQuestion": "Quel est votre chiffre d'affaires annuel actuel ?",
+      "vatQuestion": "Êtes-vous assujetti à la TVA ?",
+      "vatNumberLabel": "Saisissez votre numéro de TVA",
+      "yes": "OUI",
+      "no": "NON"
+    },
+    "companiesHouse": {
+      "title": "Connectez votre entreprise",
+      "searchLabel": "Saisissez votre numéro d'immatriculation",
+      "searchPlaceholder": "Rechercher votre entreprise…",
+      "helperText": "Nous utilisons Companies House pour la correspondance",
+      "noResultsTitle": "Aucun résultat trouvé pour votre recherche.",
+      "noResultsBody": "Essayez un autre nom ou",
+      "registerSelfEmployedLink": "inscrivez-vous en tant qu'indépendant",
+      "tryAgain": "Réessayer",
+      "unavailable": "Companies House est indisponible pour le moment. Veuillez réessayer sous peu.",
+      "confirmSelection": "Confirmer",
+      "resultStatus": "Statut : {{status}}"
+    },
+    "connectBusiness": {
+      "title": "Connectez votre entreprise",
+      "searchLabel": "Saisissez votre numéro d'immatriculation",
+      "searchPlaceholder": "Rechercher votre entreprise…",
+      "searchHelper": "Nous utilisons Companies House pour la correspondance",
+      "foundOnCompaniesHouse": "Nous avons trouvé ceci sur Companies House",
+      "businessTypeLabel": "Type d'entreprise",
+      "businessTypeLimitedCompany": "Société à responsabilité limitée",
+      "ownersLabel": "Propriétaires et/ou représentants",
+      "addressLabel": "Adresse de l'entreprise",
+      "searchAgain": "Rechercher à nouveau",
+      "editDetails": "Modifier les détails",
+      "editCompany": {
+        "title": "Modifier les infos de l'entreprise",
+        "warning": "Les modifications ne changent rien aux informations stockées chez Companies House",
+        "nameLabel": "Nom",
+        "addressLabel": "Adresse",
+        "save": "Enregistrer"
+      }
+    },
+    "selfEmployed": {
+      "title": "Configurez votre profil",
+      "firstNameLabel": "Prénom",
+      "lastNameLabel": "Nom",
+      "jobPositionLabel": "Poste",
+      "dateOfBirthLabel": "Date de naissance",
+      "dateFormat": "AAAA-MM-JJ",
+      "legalBusinessNameLabel": "Raison sociale",
+      "tradingNameLabel": "Nom commercial",
+      "registeredAddressLabel": "Adresse enregistrée",
+      "sameAsStoreLabel": "C'est aussi l'emplacement de mon magasin",
+      "authorisationLabel": "Je confirme que je suis autorisé à enregistrer cette entreprise et à prendre des décisions en son nom.",
+      "ageRestriction": "Vous devez avoir au moins 18 ans."
+    },
+    "primaryContact": {
+      "title": "Sélectionner le contact principal",
+      "fromPscLabel": "Contacts de —",
+      "contactsFrom": "Contacts de {{companyName}}.",
+      "pscLabel": "PSC",
+      "addDifferentContact": "Ajouter un autre contact",
+      "addNew": "+ Ajouter un autre contact",
+      "authorisationConfirmation": "Je confirme que je suis autorisé à enregistrer cette entreprise et à prendre des décisions en son nom.",
+      "noPscContacts": "Aucun contact trouvé. Veuillez en ajouter un manuellement.",
+      "manualFirstNameLabel": "Prénom",
+      "manualLastNameLabel": "Nom",
+      "manualJobPositionLabel": "Poste",
+      "manualPhoneLabel": "Téléphone",
+      "manualEmailLabel": "E-mail",
+      "authorisationLabel": "Je confirme que je suis autorisé à enregistrer cette entreprise et à prendre des décisions en son nom.",
+      "newBadge": "NOUVEAU",
+      "newContact": {
+        "title": "Nouveau contact",
+        "firstName": "Prénom",
+        "firstNamePlaceholder": "p. ex. Susan",
+        "lastName": "Nom",
+        "lastNamePlaceholder": "p. ex. Smith",
+        "jobPosition": "Poste",
+        "jobPositionPlaceholder": "p. ex. Barista",
+        "dateOfBirth": "Date de naissance",
+        "dateOfBirthPlaceholder": "Sélectionner",
+        "address": "Adresse",
+        "addressPlaceholder": "p. ex. 123 Street, London, SE12 12F",
+        "create": "Créer"
+      }
+    },
+    "submit": {
+      "submitting": "Création de votre entreprise…",
+      "alreadyExists": "Vous avez déjà terminé l'inscription. Redirection…",
+      "retry": "Renvoyer"
+    }
+  },
+  "profile": {
+    "title": "Votre profil",
+    "firstNameLabel": "Prénom",
+    "lastNameLabel": "Nom",
+    "emailLabel": "Adresse e-mail",
+    "phoneLabel": "Téléphone",
+    "photoLabel": "Photo de profil",
+    "photoComingSoon": "L'envoi de photo arrive bientôt.",
+    "changePhoto": "Changer la photo",
+    "changePasswordTitle": "Changer le mot de passe",
+    "currentPasswordLabel": "Mot de passe actuel",
+    "newPasswordLabel": "Nouveau mot de passe",
+    "confirmNewPasswordLabel": "Confirmer le nouveau mot de passe",
+    "saveProfile": "Enregistrer les modifications",
+    "savePassword": "Mettre à jour le mot de passe",
+    "currentPasswordIncorrect": "Votre mot de passe actuel est incorrect.",
+    "logout": "Se déconnecter"
+  },
+  "validation": {
+    "emailRequired": "L'adresse e-mail est requise",
+    "emailInvalid": "Saisissez une adresse e-mail valide",
+    "passwordRequired": "Le mot de passe est requis",
+    "passwordTooShort": "Le mot de passe doit comporter au moins 12 caractères",
+    "passwordLowercase": "Le mot de passe doit contenir une lettre minuscule",
+    "passwordUppercase": "Le mot de passe doit contenir une lettre majuscule",
+    "passwordDigit": "Le mot de passe doit contenir un chiffre",
+    "passwordSymbol": "Le mot de passe doit contenir un symbole",
+    "passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
+    "phoneRequired": "Le numéro de téléphone est requis",
+    "phoneInvalid": "Saisissez un numéro de téléphone valide",
+    "countryRequired": "Veuillez choisir un pays",
+    "businessTypeRequired": "Veuillez choisir un type d'entreprise",
+    "termsRequired": "Vous devez accepter les conditions générales",
+    "fieldRequired": "Ce champ est requis",
+    "vatNumberRequired": "Le numéro de TVA est requis si vous êtes assujetti à la TVA",
+    "vatNumberInvalid": "Saisissez un numéro de TVA britannique valide",
+    "otpLength": "Saisissez le code à 6 chiffres",
+    "nameTooLong": "Maximum 120 caractères",
+    "dateInvalid": "Saisissez une date valide",
+    "authorisationRequired": "Vous devez confirmer l'autorisation pour continuer",
+    "registrationNumberInvalid": "Saisissez un numéro d'immatriculation britannique valide à 8 caractères"
+  },
+  "home": {
+    "placeholderTitle": "Bienvenue sur Tappd",
+    "placeholderBody": "Votre espace de travail est prêt. La livraison de la Fonction 01 s'arrête ici — les écrans POS, Menu, Cuisine et Paramètres arriveront dans les prochaines fonctions."
+  }
+}

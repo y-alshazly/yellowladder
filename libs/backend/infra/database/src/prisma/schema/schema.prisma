@@ -1,0 +1,18 @@
+// Yellow Ladder — Prisma root schema
+//
+// This file contains ONLY the datasource and generator blocks. All models
+// live in sibling `.prisma` files grouped by domain (identity.prisma,
+// catalog.prisma, ordering.prisma, payment.prisma, operations.prisma,
+// integrations.prisma). Prisma merges every file in this folder via the
+// `prismaSchemaFolder` preview feature before generating the client.
+//
+// Owner: database-engineer. Never edit from backend services.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["prismaSchemaFolder"]
+}
+
+datasource db {
+  provider = "postgresql"
+}

@@ -17,31 +17,40 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "target": "es2022",
-    "lib": [
-      "es2022"
-    ],
+    "lib": ["es2022"],
     "incremental": true,
     "sourceMap": true,
     "declaration": false,
     "skipLibCheck": true,
     "importHelpers": true,
     "paths": {
-      "@yellowladder/backend": [
-        "libs/backend/src/index.ts"
+      "@yellowladder/backend": ["libs/backend/src/index.ts"],
+      "@yellowladder/backend-identity-audit": ["libs/backend/identity/audit/src/index.ts"],
+      "@yellowladder/backend-identity-authentication": [
+        "libs/backend/identity/authentication/src/index.ts"
       ],
-      "@yellowladder/web": [
-        "libs/web/src/index.ts"
+      "@yellowladder/backend-identity-authorization": [
+        "libs/backend/identity/authorization/src/index.ts"
       ],
-      "@yellowladder/mobile": [
-        "libs/mobile/src/index.ts"
+      "@yellowladder/backend-identity-companies": ["libs/backend/identity/companies/src/index.ts"],
+      "@yellowladder/backend-identity-users": ["libs/backend/identity/users/src/index.ts"],
+      "@yellowladder/backend-infra-auth": ["libs/backend/infra/auth/src/index.ts"],
+      "@yellowladder/backend-infra-companies-house": [
+        "libs/backend/infra/companies-house/src/index.ts"
       ],
-      "@yellowladder/shared": [
-        "libs/shared/src/index.ts"
-      ]
+      "@yellowladder/backend-infra-config": ["libs/backend/infra/config/src/index.ts"],
+      "@yellowladder/backend-infra-database": ["libs/backend/infra/database/src/index.ts"],
+      "@yellowladder/backend-infra-events": ["libs/backend/infra/events/src/index.ts"],
+      "@yellowladder/mobile": ["libs/mobile/src/index.ts"],
+      "@yellowladder/mobile-identity": ["libs/mobile/identity/src/index.ts"],
+      "@yellowladder/shared": ["libs/shared/src/index.ts"],
+      "@yellowladder/shared-api": ["libs/shared/api/src/index.ts"],
+      "@yellowladder/shared-i18n": ["libs/shared/i18n/src/index.ts"],
+      "@yellowladder/shared-mobile-ui": ["libs/shared/mobile-ui/src/index.ts"],
+      "@yellowladder/shared-store": ["libs/shared/store/src/index.ts"],
+      "@yellowladder/shared-types": ["libs/shared/types/src/index.ts"],
+      "@yellowladder/web": ["libs/web/src/index.ts"]
     }
   },
-  "exclude": [
-    "node_modules",
-    "tmp"
-  ]
+  "exclude": ["node_modules", "tmp"]
 }

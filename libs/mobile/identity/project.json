@@ -1,0 +1,8 @@
+{
+  "name": "mobile-identity",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/mobile/identity/src",
+  "projectType": "library",
+  "tags": ["type:mobile", "platform:mobile"],
+  "targets": {}
+}

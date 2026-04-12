@@ -1,0 +1,285 @@
+{
+  "common": {
+    "appName": "Tappd",
+    "brand": {
+      "headline": "CALM THE CHAOS.",
+      "testimonial": "Finally, someone makes a system that gets it right. I feel like tappd is made for me and my business.",
+      "attribution": "Susan, KitChef"
+    },
+    "back": "Back",
+    "goBack": "Go Back",
+    "next": "Next",
+    "continue": "Continue",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "loading": "Loading…",
+    "retry": "Retry",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "select": "Select",
+    "somethingWentWrong": "Something went wrong. Please try again."
+  },
+  "auth": {
+    "start": {
+      "selectLanguage": "Select your language",
+      "continue": "Continue"
+    },
+    "welcome": {
+      "createAccount": "Create Account",
+      "logIn": "Log in"
+    },
+    "login": {
+      "title": "Welcome back",
+      "emailLabel": "Email Address",
+      "emailPlaceholder": "jane.s@gmail.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Password",
+      "forgotPassword": "Forgot Password?",
+      "signIn": "Sign in",
+      "noAccount": "Don't have an account?",
+      "noAccountPrompt": "Don't have an account?",
+      "createAccount": "Create Account",
+      "invalidCredentials": "The email or password you entered is incorrect.",
+      "rateLimited": "Too many attempts. Please wait a few minutes and try again."
+    },
+    "signup": {
+      "title": "Create your account",
+      "emailLabel": "Email Address",
+      "phoneLabel": "Phone",
+      "phonePlaceholder": "Mobile Number",
+      "countryLabel": "Where are you based?",
+      "countryPlaceholder": "Select",
+      "businessTypeLabel": "What type of business are you?",
+      "businessTypePlaceholder": "Select",
+      "businessType": {
+        "limitedCompany": "Limited Company",
+        "selfEmployed": "Self-Employed"
+      },
+      "passwordLabel": "Password",
+      "confirmPasswordLabel": "Confirm Password",
+      "termsLabel": "I agree to Tappd's",
+      "termsLink": "Terms & Conditions",
+      "duplicateEmail": "An account with this email already exists.",
+      "submit": "Create Account"
+    },
+    "verifyEmail": {
+      "title": "Please verify your account",
+      "subtitle": "We've sent a pin to {{maskedEmail}}",
+      "resendPrompt": "No email?",
+      "resend": "Resend",
+      "expiresIn": "Expires in {{mmss}}",
+      "invalidCode": "Incorrect code. {{remainingAttempts}} attempts remaining.",
+      "codeExpired": "This code has expired. Tap Resend to get a new one.",
+      "attemptsExceeded": "Too many attempts. Tap Resend to get a new code.",
+      "rateLimited": "You've requested too many codes. Please wait {{minutes}} minutes.",
+      "verified": "Your email has been verified."
+    },
+    "otp": {
+      "title": "Please verify your account",
+      "subtitle": "We've sent a pin to {{maskedEmail}}",
+      "noEmail": "No email?",
+      "resend": "Resend"
+    },
+    "forgotPassword": {
+      "title": "Forgot your password?",
+      "subtitle": "Enter the email address associated with your account and we'll send you a link to reset your password.",
+      "emailLabel": "Email Address",
+      "submit": "Reset Password",
+      "sent": "If an account exists for this email, we've sent a reset link."
+    },
+    "resetPassword": {
+      "title": "Reset your password",
+      "subtitle": "Enter the email address you'd like your password reset link sent to.",
+      "passwordLabel": "Password",
+      "confirmPasswordLabel": "Confirm Password",
+      "submit": "Save Password",
+      "tokenInvalid": "This reset link is no longer valid. Please request a new one.",
+      "tokenExpired": "This reset link has expired. Please request a new one.",
+      "success": "Your password has been updated. Please sign in."
+    },
+    "termsAndConditions": {
+      "title": "Terms & Conditions",
+      "bodyPlaceholder": "Full Terms & Conditions copy goes here. This placeholder will be replaced with the final legal copy before launch.",
+      "accept": "Accept"
+    },
+    "terms": {
+      "title": "Terms & Conditions",
+      "intro": "Welcome to Tappd, a point-of-sale platform designed to help businesses accept payments, manage transactions, and operate their retail operations efficiently. These Terms and Conditions (\"Terms\") govern your access to and use of the Tappd mobile and tablet application, related services, and website (collectively, the \"Service\"). By creating an account, downloading the application, or using Tappd, you agree to these Terms.",
+      "section": {
+        "about": {
+          "title": "1. About Tappd",
+          "body": "Tappd provides software that allows merchants to accept and process payments, manage sales transactions, track inventory and reporting, and integrate with supported payment processors and hardware. Tappd does not directly hold or process funds unless explicitly stated, and payment processing may be provided through third-party payment partners."
+        },
+        "eligibility": {
+          "title": "2. Eligibility",
+          "body": "To use Tappd you must be at least 18 years old, have the legal authority to operate a business or accept payments, and provide accurate and complete account information."
+        }
+      },
+      "iAccept": "I Accept",
+      "helper": "Please read the terms and conditions carefully"
+    }
+  },
+  "wizard": {
+    "progress": "Step {{current}} of {{total}}",
+    "common": {
+      "address": {
+        "line1": "Address Line 1",
+        "line2": "Address Line 2",
+        "city": "City",
+        "postcode": "Postcode",
+        "region": "Region",
+        "countryCode": "Country"
+      }
+    },
+    "businessProfile": {
+      "title": "Tell us about your business",
+      "categoryLabel": "What Category Best Describes What You Will Use POS For?",
+      "paymentMethodLabel": "How Do You Want To Sell With Tappd POS?",
+      "annualTurnoverLabel": "What Is Your Current Annual Turnover?",
+      "vatRegisteredLabel": "Are you registered for VAT Tax?",
+      "vatNumberLabel": "VAT Number",
+      "vatNumberPlaceholder": "GB123456789"
+    },
+    "profile": {
+      "title": "Set up your profile",
+      "categoryQuestion": "What category best describes what you will use POS for?",
+      "sellModeQuestion": "How do you want to sell with Tappd POS",
+      "annualTurnoverQuestion": "What is your current annual turnover",
+      "vatQuestion": "Are you registered for VAT Tax?",
+      "vatNumberLabel": "Enter your VAT tax number",
+      "yes": "YES",
+      "no": "NO"
+    },
+    "companiesHouse": {
+      "title": "Connect your business",
+      "searchLabel": "Enter your business registration number",
+      "searchPlaceholder": "Find your business…",
+      "helperText": "We'll use Companies House to match",
+      "noResultsTitle": "No results found for your search.",
+      "noResultsBody": "Try a different name or",
+      "registerSelfEmployedLink": "register as self-employed",
+      "tryAgain": "Try again",
+      "unavailable": "Companies House is unavailable right now. Please try again shortly.",
+      "confirmSelection": "Confirm",
+      "resultStatus": "Status: {{status}}"
+    },
+    "connectBusiness": {
+      "title": "Connect your business",
+      "searchLabel": "Enter your business registration number",
+      "searchPlaceholder": "Find your business…",
+      "searchHelper": "We'll use Companies House to match",
+      "foundOnCompaniesHouse": "We found this on Companies House",
+      "businessTypeLabel": "Business Type",
+      "businessTypeLimitedCompany": "Limited Company",
+      "ownersLabel": "Business owners and/or representatives",
+      "addressLabel": "Business address",
+      "searchAgain": "Search again",
+      "editDetails": "Edit Details",
+      "editCompany": {
+        "title": "Edit Company Info",
+        "warning": "Editing won't change any details stored at Companies House",
+        "nameLabel": "Name",
+        "addressLabel": "Address",
+        "save": "Save"
+      }
+    },
+    "selfEmployed": {
+      "title": "Set up your profile",
+      "firstNameLabel": "First Name",
+      "lastNameLabel": "Last Name",
+      "jobPositionLabel": "Job Position",
+      "dateOfBirthLabel": "Date of birth",
+      "dateFormat": "YYYY-MM-DD",
+      "legalBusinessNameLabel": "Legal Business Name",
+      "tradingNameLabel": "Trading Name",
+      "registeredAddressLabel": "Registered Address",
+      "sameAsStoreLabel": "This is also the location of my store",
+      "authorisationLabel": "I confirm that I am authorized to register this business and make decisions on its behalf.",
+      "ageRestriction": "You must be at least 18 years old."
+    },
+    "primaryContact": {
+      "title": "Select primary contact",
+      "fromPscLabel": "Contacts from —",
+      "contactsFrom": "Contacts from {{companyName}}.",
+      "pscLabel": "PSC",
+      "addDifferentContact": "Add a different contact",
+      "addNew": "+ Add a different contact",
+      "authorisationConfirmation": "I confirm that I am authorized to register this business and make decisions on its behalf.",
+      "noPscContacts": "No contacts found. Please add one manually.",
+      "manualFirstNameLabel": "First Name",
+      "manualLastNameLabel": "Last Name",
+      "manualJobPositionLabel": "Job Position",
+      "manualPhoneLabel": "Phone",
+      "manualEmailLabel": "Email",
+      "authorisationLabel": "I confirm that I am authorized to register this business and make decisions on its behalf.",
+      "newBadge": "NEW",
+      "newContact": {
+        "title": "New contact",
+        "firstName": "First Name",
+        "firstNamePlaceholder": "e.g. Susan",
+        "lastName": "Last Name",
+        "lastNamePlaceholder": "e.g. Smith",
+        "jobPosition": "Job Position",
+        "jobPositionPlaceholder": "e.g. Barista",
+        "dateOfBirth": "Date of birth",
+        "dateOfBirthPlaceholder": "Select",
+        "address": "Address",
+        "addressPlaceholder": "e.g. 123 Street, London, SE12 12F",
+        "create": "Create"
+      }
+    },
+    "submit": {
+      "submitting": "Creating your business…",
+      "alreadyExists": "You've already completed onboarding. Redirecting…",
+      "retry": "Retry submission"
+    }
+  },
+  "profile": {
+    "title": "Your profile",
+    "firstNameLabel": "First Name",
+    "lastNameLabel": "Last Name",
+    "emailLabel": "Email Address",
+    "phoneLabel": "Phone",
+    "photoLabel": "Profile photo",
+    "photoComingSoon": "Photo upload coming soon.",
+    "changePhoto": "Change photo",
+    "changePasswordTitle": "Change password",
+    "currentPasswordLabel": "Current password",
+    "newPasswordLabel": "New password",
+    "confirmNewPasswordLabel": "Confirm new password",
+    "saveProfile": "Save changes",
+    "savePassword": "Update password",
+    "currentPasswordIncorrect": "Your current password is incorrect.",
+    "logout": "Log out"
+  },
+  "validation": {
+    "emailRequired": "Email is required",
+    "emailInvalid": "Enter a valid email address",
+    "passwordRequired": "Password is required",
+    "passwordTooShort": "Password must be at least 12 characters",
+    "passwordLowercase": "Password must contain a lowercase letter",
+    "passwordUppercase": "Password must contain an uppercase letter",
+    "passwordDigit": "Password must contain a digit",
+    "passwordSymbol": "Password must contain a symbol",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "phoneRequired": "Phone number is required",
+    "phoneInvalid": "Enter a valid phone number",
+    "countryRequired": "Please choose a country",
+    "businessTypeRequired": "Please choose a business type",
+    "termsRequired": "You must agree to the Terms & Conditions",
+    "fieldRequired": "This field is required",
+    "vatNumberRequired": "VAT number is required when VAT registered",
+    "vatNumberInvalid": "Enter a valid UK VAT number",
+    "otpLength": "Enter the 6-digit code",
+    "nameTooLong": "Maximum 120 characters",
+    "dateInvalid": "Enter a valid date",
+    "authorisationRequired": "You must confirm authorisation to continue",
+    "registrationNumberInvalid": "Enter a valid 8-character UK registration number"
+  },
+  "home": {
+    "placeholderTitle": "Welcome to Tappd",
+    "placeholderBody": "Your workspace is ready. The Feature 01 hand-off ends at this screen — the POS, Menu, Kitchen and Settings surfaces arrive in later features."
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "backend-infra-config",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/backend/infra/config/src",
+  "projectType": "library",
+  "tags": ["type:infra", "platform:server"],
+  "targets": {}
+}

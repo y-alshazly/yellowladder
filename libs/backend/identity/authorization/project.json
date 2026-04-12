@@ -1,0 +1,8 @@
+{
+  "name": "backend-identity-authorization",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/backend/identity/authorization/src",
+  "projectType": "library",
+  "tags": ["type:backend", "platform:server", "domain:identity"],
+  "targets": {}
+}

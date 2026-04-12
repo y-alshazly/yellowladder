@@ -1,0 +1,8 @@
+{
+  "name": "backend-infra-companies-house",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/backend/infra/companies-house/src",
+  "projectType": "library",
+  "tags": ["type:infra", "platform:server"],
+  "targets": {}
+}

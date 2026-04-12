@@ -1,6 +1,8 @@
+const path = require('path');
 const { withNxMetro } = require('@nx/react-native');
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 
+const workspaceRoot = path.resolve(__dirname, '../..');
 const defaultConfig = getDefaultConfig(__dirname);
 const { assetExts, sourceExts } = defaultConfig.resolver;
 
@@ -11,7 +13,7 @@ const { assetExts, sourceExts } = defaultConfig.resolver;
  * @type {import('metro-config').MetroConfig}
  */
 const customConfig = {
-  cacheVersion: "mobile-backoffice",
+  cacheVersion: 'mobile-backoffice',
   transformer: {
     babelTransformerPath: require.resolve('react-native-svg-transformer'),
   },
@@ -28,5 +30,5 @@ module.exports = withNxMetro(mergeConfig(defaultConfig, customConfig), {
   // all the file extensions used for imports other than 'ts', 'tsx', 'js', 'jsx', 'json'
   extensions: [],
   // Specify folders to watch, in addition to Nx defaults (workspace libraries and node_modules)
-  watchFolders: [],
+  watchFolders: [workspaceRoot],
 });
