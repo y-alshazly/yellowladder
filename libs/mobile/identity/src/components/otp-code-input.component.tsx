@@ -1,12 +1,13 @@
 import { useAppTheme } from '@yellowladder/shared-mobile-ui';
 import { createRef, useMemo, useRef } from 'react';
 import {
+  TextInput as RNTextInput,
   StyleSheet,
   View,
   type NativeSyntheticEvent,
   type TextInputKeyPressEventData,
 } from 'react-native';
-import { HelperText, TextInput } from 'react-native-paper';
+import { HelperText } from 'react-native-paper';
 
 export interface OtpCodeInputProps {
   length?: number;
@@ -17,12 +18,10 @@ export interface OtpCodeInputProps {
 }
 
 /**
- * 6-cell code input matching the verify-email design. Auto-advances to
- * the next cell on input and returns to the previous cell on backspace.
- *
- * Uses Paper `TextInput` so focus / error styling follows the theme. Each
- * cell is a single-character `numeric` input — we never attempt to paste
- * a full code because the design shows one cell per digit.
+ * 6-cell code input matching the verify-email design. Cells flex evenly
+ * across the available width and centre the digit both horizontally and
+ * vertically. Auto-advances on input; backspace returns to the previous
+ * cell.
  */
 export function OtpCodeInput({
   length = 6,
@@ -32,7 +31,7 @@ export function OtpCodeInput({
   autoFocus = true,
 }: OtpCodeInputProps) {
   const theme = useAppTheme();
-  const refs = useMemo(() => Array.from({ length }, () => createRef<never>()), [length]);
+  const refs = useMemo(() => Array.from({ length }, () => createRef<RNTextInput>()), [length]);
   const lastValueRef = useRef(value);
   lastValueRef.current = value;
 
@@ -51,8 +50,7 @@ export function OtpCodeInput({
     }
     setAt(index, digit);
     if (index < length - 1) {
-      const next = refs[index + 1]?.current as unknown as { focus?: () => void } | null;
-      next?.focus?.();
+      refs[index + 1]?.current?.focus();
     }
   };
 
@@ -63,35 +61,35 @@ export function OtpCodeInput({
     if (event.nativeEvent.key !== 'Backspace') return;
     if (value[index]) return;
     if (index > 0) {
-      const prev = refs[index - 1]?.current as unknown as { focus?: () => void } | null;
-      prev?.focus?.();
+      refs[index - 1]?.current?.focus();
     }
   };
 
   const cells = Array.from({ length }, (_, index) => value[index] ?? '');
+  const borderColor = error ? theme.colors.error : '#D7D7D8';
 
   return (
     <View>
       <View style={styles.row}>
         {cells.map((cell, index) => (
-          <View key={index} style={styles.cellWrapper}>
-            <TextInput
-              ref={refs[index]}
-              mode="outlined"
-              value={cell}
-              onChangeText={(text) => handleChange(index, text)}
-              onKeyPress={(event) => handleKeyPress(index, event)}
-              keyboardType="number-pad"
-              maxLength={1}
-              textAlign="center"
-              autoFocus={autoFocus && index === 0}
-              error={Boolean(error)}
-              style={styles.cellInput}
-              outlineColor="#D7D7D8"
-              activeOutlineColor="#D7D7D8"
-              outlineStyle={styles.cellOutline}
-            />
-          </View>
+          <RNTextInput
+            key={index}
+            ref={refs[index]}
+            value={cell}
+            onChangeText={(text) => handleChange(index, text)}
+            onKeyPress={(event) => handleKeyPress(index, event)}
+            keyboardType="number-pad"
+            maxLength={1}
+            autoFocus={autoFocus && index === 0}
+            selectionColor={theme.colors.primary}
+            style={[
+              styles.cell,
+              {
+                borderColor,
+                color: theme.colors.onSurface,
+              },
+            ]}
+          />
         ))}
       </View>
       <HelperText type="error" visible={Boolean(error)}>
@@ -102,8 +100,22 @@ export function OtpCodeInput({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
-  cellWrapper: { width: 70, height: 100 },
-  cellInput: { textAlign: 'center', fontSize: 24, height: 100 },
-  cellOutline: { borderWidth: 1, borderRadius: 5 },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    gap: 10,
+  },
+  cell: {
+    width: 48,
+    height: 56,
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    fontSize: 22,
+    fontWeight: '600',
+    padding: 0,
+  },
 });

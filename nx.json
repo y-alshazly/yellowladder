@@ -69,6 +69,20 @@
         "buildAndroidTargetName": "build-android",
         "syncDepsTargetName": "sync-deps"
       }
+    },
+    {
+      "plugin": "@nx/react-native/plugin",
+      "options": {
+        "startTargetName": "react-native:start",
+        "upgradeTargetName": "react-native:update",
+        "bundleTargetName": "react-native:bundle",
+        "podInstallTargetName": "react-native:pod-install",
+        "runIosTargetName": "react-native:run-ios",
+        "runAndroidTargetName": "react-native:run-android",
+        "buildIosTargetName": "react-native:build-ios",
+        "buildAndroidTargetName": "react-native:build-android",
+        "syncDepsTargetName": "react-native:sync-deps"
+      }
     }
   ],
   "targetDefaults": {

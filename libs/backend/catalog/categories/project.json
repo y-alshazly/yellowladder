@@ -1,0 +1,9 @@
+{
+  "name": "backend-catalog-categories",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/backend/catalog/categories/src",
+  "projectType": "library",
+  "tags": ["type:backend", "platform:server", "domain:catalog"],
+  "// targets": "to see all targets run: nx show project backend-catalog-categories --web",
+  "targets": {}
+}

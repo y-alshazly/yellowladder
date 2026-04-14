@@ -1,0 +1,8 @@
+{
+  "name": "mobile-catalog",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/mobile/catalog/src",
+  "projectType": "library",
+  "tags": ["type:mobile", "platform:mobile"],
+  "targets": {}
+}

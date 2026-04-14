@@ -1,0 +1,459 @@
+// Yellow Ladder — Catalog domain
+//
+// Owns:
+//   - Shop                (branch/location under a Company — multi-tenant via company_id)
+//   - UserShop            (M2M join: User <-> Shop assignment — platform-global, no RLS)
+//   - Category            (company-level menu category — multi-tenant via company_id)
+//   - ShopCategory        (per-shop override of Category — multi-tenant via company_id + shop_id)
+//   - MenuItem            (company-level menu item — multi-tenant via company_id)
+//   - ShopMenuItem        (per-shop override of MenuItem — multi-tenant via company_id + shop_id)
+//   - MenuAddon           (company-level addon group, belongs to MenuItem — multi-tenant via company_id)
+//   - MenuAddonOption     (company-level addon option, belongs to MenuAddon — multi-tenant via company_id)
+//   - ShopMenuAddon       (per-shop override of MenuAddon — multi-tenant via company_id + shop_id)
+//   - ShopMenuAddonOption (per-shop override of MenuAddonOption — multi-tenant via company_id + shop_id)
+//   - ItemPurchaseCount   (denormalized analytics — multi-tenant via company_id + shop_id)
+//   - UserShopItemOrder   (per-user-per-shop manual sort order — platform-global, no RLS)
+//
+// Tenancy:
+//   - Shop, Category, MenuItem, MenuAddon, MenuAddonOption : RLS on `company_id`
+//   - ShopCategory, ShopMenuItem, ShopMenuAddon, ShopMenuAddonOption, ItemPurchaseCount :
+//       RLS on `company_id`, service-layer shop scoping via `shop_id`
+//   - UserShop, UserShopItemOrder : PLATFORM-GLOBAL — no company_id, no RLS.
+//       Access controlled by service-layer auth (AuthorizationService).
+
+// -----------------------------------------------------------------------------
+// Shop — branch/location under a Company (multi-tenant)
+// -----------------------------------------------------------------------------
+model Shop {
+  id                 String    @id @default(uuid()) @db.Uuid
+
+  companyId          String    @map("company_id") @db.Uuid
+  company            Company   @relation(fields: [companyId], references: [id])
+
+  name               String    @map("name") @db.VarChar(255)
+  logoUrl            String?   @map("logo_url") @db.VarChar(2048)
+
+  // Address
+  addressLine1       String    @map("address_line1") @db.VarChar(255)
+  addressLine2       String?   @map("address_line2") @db.VarChar(255)
+  addressCity        String    @map("address_city") @db.VarChar(128)
+  addressRegion      String?   @map("address_region") @db.VarChar(128)
+  addressPostcode    String    @map("address_postcode") @db.VarChar(16)
+  addressCountryCode String    @map("address_country_code") @db.Char(2)
+
+  phone              String?   @map("phone") @db.VarChar(20)
+
+  // Flexible restaurant hours structure (e.g. { "mon": { "open": "09:00", "close": "22:00" }, ... })
+  hours              Json?     @map("hours") @db.Json
+
+  isArchived         Boolean   @default(false) @map("is_archived")
+  sortOrder          Int       @default(0) @map("sort_order")
+
+  // Exactly one shop per company should be the main shop.
+  // Enforced by a partial unique index in the migration SQL:
+  //   CREATE UNIQUE INDEX shops_company_id_is_main_unique
+  //   ON shops (company_id) WHERE is_main = true;
+  isMain             Boolean   @default(false) @map("is_main")
+
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  userShops            UserShop[]
+  shopCategories       ShopCategory[]
+  shopMenuItems        ShopMenuItem[]
+  shopMenuAddons       ShopMenuAddon[]
+  shopMenuAddonOptions ShopMenuAddonOption[]
+  itemPurchaseCounts   ItemPurchaseCount[]
+  userShopItemOrders   UserShopItemOrder[]
+
+  @@index([companyId, sortOrder])
+  @@index([companyId, isArchived])
+  @@map("shops")
+}
+
+// -----------------------------------------------------------------------------
+// UserShop — M2M join between User and Shop
+//
+// PLATFORM-GLOBAL — no company_id column, no RLS.
+// Access is controlled by service-layer auth (AuthorizationService).
+// Used to determine which shops a SHOP_MANAGER / EMPLOYEE can access
+// (populates user.shopIds in the JWT).
+// -----------------------------------------------------------------------------
+model UserShop {
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  shopId    String   @map("shop_id") @db.Uuid
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@id([userId, shopId])
+  @@index([shopId])
+  @@map("user_shops")
+}
+
+// =============================================================================
+// Catalog Inheritance: Company-Level Entities + Per-Shop Overrides
+//
+// The tiered catalog model:
+//   Company-level: Category, MenuItem, MenuAddon, MenuAddonOption
+//   Shop-level:    ShopCategory, ShopMenuItem, ShopMenuAddon, ShopMenuAddonOption
+//
+// Override tables store ONLY the fields that differ per shop. Nullable override
+// fields mean "use the company-level value". The EffectiveMenuService merges
+// both tiers at read time — shop values win when non-null.
+//
+// Key invariants:
+//   - MenuItem.isActive = false at company level → unavailable everywhere
+//   - Cascade delete from parent → shop overrides
+//   - ShopCategory.isNew = true → shop-only category (thin company-level parent)
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Category — company-level menu category (multi-tenant)
+//
+// NO shop_id column (Pre-RLS Blocker 2 resolved). Shop scoping is handled
+// exclusively through ShopCategory overrides.
+// -----------------------------------------------------------------------------
+model Category {
+  id          String   @id @default(uuid()) @db.Uuid
+
+  companyId   String   @map("company_id") @db.Uuid
+  company     Company  @relation(fields: [companyId], references: [id])
+
+  nameEn      String   @map("name_en") @db.VarChar(255)
+  nameDe      String   @map("name_de") @db.VarChar(255)
+  nameFr      String   @map("name_fr") @db.VarChar(255)
+
+  iconName    String?  @map("icon_name") @db.VarChar(64)
+  emojiCode   String?  @map("emoji_code") @db.VarChar(32)
+
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  menuItems      MenuItem[]
+  shopCategories ShopCategory[]
+
+  @@index([companyId, sortOrder])
+  @@index([companyId, isActive])
+  @@map("categories")
+}
+
+// -----------------------------------------------------------------------------
+// ShopCategory — per-shop override of Category (multi-tenant + shop-scoped)
+//
+// Nullable override fields: null = use company-level value.
+// isNew = true: this category was created as a shop-only category (the parent
+// Category row is a thin stub for referential integrity).
+// -----------------------------------------------------------------------------
+model ShopCategory {
+  id          String   @id @default(uuid()) @db.Uuid
+
+  companyId   String   @map("company_id") @db.Uuid
+
+  shopId      String   @map("shop_id") @db.Uuid
+  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  categoryId  String   @map("category_id") @db.Uuid
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  // Override fields (null = use company-level value)
+  nameEn      String?  @map("name_en") @db.VarChar(255)
+  nameDe      String?  @map("name_de") @db.VarChar(255)
+  nameFr      String?  @map("name_fr") @db.VarChar(255)
+  sortOrder   Int?     @map("sort_order")
+  isActive    Boolean? @map("is_active")
+
+  isNew       Boolean  @default(false) @map("is_new")
+
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([shopId, categoryId])
+  @@index([companyId, shopId])
+  @@map("shop_categories")
+}
+
+// -----------------------------------------------------------------------------
+// MenuItem — company-level menu item (multi-tenant)
+//
+// companyId is NOT NULL (Pre-RLS Blocker 1 resolved in new schema).
+// -----------------------------------------------------------------------------
+model MenuItem {
+  id              String   @id @default(uuid()) @db.Uuid
+
+  companyId       String   @map("company_id") @db.Uuid
+  company         Company  @relation(fields: [companyId], references: [id])
+
+  categoryId      String   @map("category_id") @db.Uuid
+  category        Category @relation(fields: [categoryId], references: [id])
+
+  nameEn          String   @map("name_en") @db.VarChar(255)
+  nameDe          String   @map("name_de") @db.VarChar(255)
+  nameFr          String   @map("name_fr") @db.VarChar(255)
+
+  descriptionEn   String?  @map("description_en") @db.VarChar(1024)
+  descriptionDe   String?  @map("description_de") @db.VarChar(1024)
+  descriptionFr   String?  @map("description_fr") @db.VarChar(1024)
+
+  basePrice       Decimal  @map("base_price") @db.Decimal(10, 2)
+  imageUrl        String?  @map("image_url") @db.VarChar(2048)
+
+  isActive        Boolean  @default(true) @map("is_active")
+  isDraft         Boolean  @default(true) @map("is_draft")
+  sortOrder       Int      @default(0) @map("sort_order")
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  menuAddons         MenuAddon[]
+  shopMenuItems      ShopMenuItem[]
+  itemPurchaseCounts ItemPurchaseCount[]
+  userShopItemOrders UserShopItemOrder[]
+
+  @@index([companyId, categoryId])
+  @@index([companyId, sortOrder])
+  @@index([companyId, isActive, isDraft])
+  @@map("menu_items")
+}
+
+// -----------------------------------------------------------------------------
+// ShopMenuItem — per-shop override of MenuItem (multi-tenant + shop-scoped)
+//
+// Nullable override fields: null = use company-level value.
+// -----------------------------------------------------------------------------
+model ShopMenuItem {
+  id              String   @id @default(uuid()) @db.Uuid
+
+  companyId       String   @map("company_id") @db.Uuid
+
+  shopId          String   @map("shop_id") @db.Uuid
+  shop            Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  menuItemId      String   @map("menu_item_id") @db.Uuid
+  menuItem        MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  // Override fields (null = use company-level value)
+  nameEn          String?  @map("name_en") @db.VarChar(255)
+  nameDe          String?  @map("name_de") @db.VarChar(255)
+  nameFr          String?  @map("name_fr") @db.VarChar(255)
+  basePrice       Decimal? @map("base_price") @db.Decimal(10, 2)
+  isActive        Boolean? @map("is_active")
+  sortOrder       Int?     @map("sort_order")
+
+  isNew           Boolean  @default(false) @map("is_new")
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([shopId, menuItemId])
+  @@index([companyId, shopId])
+  @@map("shop_menu_items")
+}
+
+// -----------------------------------------------------------------------------
+// MenuAddon — company-level addon group, belongs to a MenuItem (multi-tenant)
+//
+// Each addon group is owned by a specific MenuItem. The UI shows existing addon
+// group names as templates for quick-create on other items.
+// -----------------------------------------------------------------------------
+model MenuAddon {
+  id              String   @id @default(uuid()) @db.Uuid
+
+  companyId       String   @map("company_id") @db.Uuid
+
+  menuItemId      String   @map("menu_item_id") @db.Uuid
+  menuItem        MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  nameEn          String   @map("name_en") @db.VarChar(255)
+  nameDe          String   @map("name_de") @db.VarChar(255)
+  nameFr          String   @map("name_fr") @db.VarChar(255)
+
+  isMultiSelect   Boolean  @default(false) @map("is_multi_select")
+  isRequired      Boolean  @default(false) @map("is_required")
+  maxSelections   Int?     @map("max_selections")
+
+  sortOrder       Int      @default(0) @map("sort_order")
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  options        MenuAddonOption[]
+  shopMenuAddons ShopMenuAddon[]
+
+  @@index([companyId, menuItemId])
+  @@index([companyId, sortOrder])
+  @@map("menu_addons")
+}
+
+// -----------------------------------------------------------------------------
+// MenuAddonOption — company-level addon option, belongs to a MenuAddon
+// -----------------------------------------------------------------------------
+model MenuAddonOption {
+  id              String   @id @default(uuid()) @db.Uuid
+
+  companyId       String   @map("company_id") @db.Uuid
+
+  menuAddonId     String   @map("menu_addon_id") @db.Uuid
+  menuAddon       MenuAddon @relation(fields: [menuAddonId], references: [id], onDelete: Cascade)
+
+  nameEn          String   @map("name_en") @db.VarChar(255)
+  nameDe          String   @map("name_de") @db.VarChar(255)
+  nameFr          String   @map("name_fr") @db.VarChar(255)
+
+  priceModifier   Decimal  @default(0) @map("price_modifier") @db.Decimal(10, 2)
+  colorHex        String?  @map("color_hex") @db.VarChar(7)
+
+  sortOrder       Int      @default(0) @map("sort_order")
+  isActive        Boolean  @default(true) @map("is_active")
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  shopMenuAddonOptions ShopMenuAddonOption[]
+
+  @@index([companyId, menuAddonId])
+  @@map("menu_addon_options")
+}
+
+// -----------------------------------------------------------------------------
+// ShopMenuAddon — per-shop override of MenuAddon (multi-tenant + shop-scoped)
+//
+// Nullable override fields: null = use company-level value.
+// -----------------------------------------------------------------------------
+model ShopMenuAddon {
+  id              String   @id @default(uuid()) @db.Uuid
+
+  companyId       String   @map("company_id") @db.Uuid
+
+  shopId          String   @map("shop_id") @db.Uuid
+  shop            Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  menuAddonId     String   @map("menu_addon_id") @db.Uuid
+  menuAddon       MenuAddon @relation(fields: [menuAddonId], references: [id], onDelete: Cascade)
+
+  // Override fields (null = use company-level value)
+  nameEn          String?  @map("name_en") @db.VarChar(255)
+  nameDe          String?  @map("name_de") @db.VarChar(255)
+  nameFr          String?  @map("name_fr") @db.VarChar(255)
+  isMultiSelect   Boolean? @map("is_multi_select")
+  isRequired      Boolean? @map("is_required")
+  maxSelections   Int?     @map("max_selections")
+  sortOrder       Int?     @map("sort_order")
+
+  isNew           Boolean  @default(false) @map("is_new")
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([shopId, menuAddonId])
+  @@index([companyId, shopId])
+  @@map("shop_menu_addons")
+}
+
+// -----------------------------------------------------------------------------
+// ShopMenuAddonOption — per-shop override of MenuAddonOption
+//
+// Nullable override fields: null = use company-level value.
+// -----------------------------------------------------------------------------
+model ShopMenuAddonOption {
+  id                  String   @id @default(uuid()) @db.Uuid
+
+  companyId           String   @map("company_id") @db.Uuid
+
+  shopId              String   @map("shop_id") @db.Uuid
+  shop                Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  menuAddonOptionId   String   @map("menu_addon_option_id") @db.Uuid
+  menuAddonOption     MenuAddonOption @relation(fields: [menuAddonOptionId], references: [id], onDelete: Cascade)
+
+  // Override fields (null = use company-level value)
+  nameEn              String?  @map("name_en") @db.VarChar(255)
+  nameDe              String?  @map("name_de") @db.VarChar(255)
+  nameFr              String?  @map("name_fr") @db.VarChar(255)
+  priceModifier       Decimal? @map("price_modifier") @db.Decimal(10, 2)
+  colorHex            String?  @map("color_hex") @db.VarChar(7)
+  sortOrder           Int?     @map("sort_order")
+  isActive            Boolean? @map("is_active")
+
+  isNew               Boolean  @default(false) @map("is_new")
+
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([shopId, menuAddonOptionId])
+  @@index([companyId, shopId])
+  @@map("shop_menu_addon_options")
+}
+
+// =============================================================================
+// Analytics / Projections
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// ItemPurchaseCount — denormalized analytics (multi-tenant + shop-scoped)
+//
+// Tracks purchase counts per menu item per shop. Incremented via domain event
+// from Ordering.OrderConfirmed — never by direct service call.
+// Handler must be idempotent (replaying the event must not double-count).
+// -----------------------------------------------------------------------------
+model ItemPurchaseCount {
+  id          String   @id @default(uuid()) @db.Uuid
+
+  companyId   String   @map("company_id") @db.Uuid
+
+  menuItemId  String   @map("menu_item_id") @db.Uuid
+  menuItem    MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  shopId      String   @map("shop_id") @db.Uuid
+  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  count       Int      @default(0) @map("count")
+
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([shopId, menuItemId])
+  @@index([companyId, shopId])
+  @@index([companyId, menuItemId])
+  @@map("item_purchase_counts")
+}
+
+// -----------------------------------------------------------------------------
+// UserShopItemOrder — per-user-per-shop manual sort order for POS display
+//
+// PLATFORM-GLOBAL — no company_id column, no RLS (same pattern as UserShop).
+// Access is controlled by service-layer auth (AuthorizationService).
+// Stores the user's preferred display order for menu items on the POS screen
+// when "manual" sort mode is selected (vs. "automatic" / best-seller-first).
+// -----------------------------------------------------------------------------
+model UserShopItemOrder {
+  id          String   @id @default(uuid()) @db.Uuid
+
+  userId      String   @map("user_id") @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  shopId      String   @map("shop_id") @db.Uuid
+  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  menuItemId  String   @map("menu_item_id") @db.Uuid
+  menuItem    MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  sortOrder   Int      @map("sort_order")
+
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([userId, shopId, menuItemId])
+  @@index([userId, shopId, sortOrder])
+  @@map("user_shop_item_orders")
+}

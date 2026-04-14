@@ -22,6 +22,7 @@ export {
   selectResumeAt,
   setCredentials,
   setResumeAt,
+  setTokens,
   setUser,
   type AuthState,
 } from './auth/auth.slice';

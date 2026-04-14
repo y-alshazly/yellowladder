@@ -1,4 +1,4 @@
-import { configureStore, type Middleware } from '@reduxjs/toolkit';
+import { configureStore, type Middleware, type StoreEnhancer } from '@reduxjs/toolkit';
 import { authReducer } from './auth/auth.slice';
 import { wizardDraftReducer } from './wizard-draft/wizard-draft.slice';
 
@@ -28,6 +28,7 @@ export interface SetupStoreOptions {
   apiReducerPath: string;
   apiReducer: ReturnType<typeof createSlicePlaceholder>;
   apiMiddleware: Middleware;
+  enhancers?: StoreEnhancer[];
 }
 
 // Placeholder type helper — the API slice is injected so this file has no
@@ -43,6 +44,8 @@ export function setupStore(options: SetupStoreOptions) {
     },
     middleware: (getDefault) =>
       getDefault({ serializableCheck: false }).concat(options.apiMiddleware),
+    enhancers: (getDefault) =>
+      options.enhancers ? getDefault().concat(options.enhancers) : getDefault(),
   });
 }
 

@@ -54,6 +54,17 @@ export const authSlice = createSlice({
       state.resumeAt = action.payload.resumeAt ?? state.resumeAt;
       state.status = 'authenticated';
     },
+    /**
+     * Sets tokens without touching user / status. Used when the access token
+     * is refreshed before the user payload is available (e.g. during app
+     * hydration) so that subsequent RTK Query calls attach the correct
+     * Authorization header.
+     */
+    setTokens(state, action: PayloadAction<AuthTokens>) {
+      state.accessToken = action.payload.accessToken;
+      state.accessTokenExpiresAt = action.payload.accessTokenExpiresAt;
+      state.csrfToken = action.payload.csrfToken;
+    },
     setResumeAt(state, action: PayloadAction<OnboardingResumePoint | null>) {
       state.resumeAt = action.payload;
     },
@@ -74,8 +85,14 @@ export const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, setResumeAt, setUser, markUnauthenticated, markHydrationFailed } =
-  authSlice.actions;
+export const {
+  setCredentials,
+  setTokens,
+  setResumeAt,
+  setUser,
+  markUnauthenticated,
+  markHydrationFailed,
+} = authSlice.actions;
 
 export const authReducer = authSlice.reducer;
 

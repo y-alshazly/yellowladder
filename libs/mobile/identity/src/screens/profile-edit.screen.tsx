@@ -5,7 +5,7 @@ import {
   useLogoutMutation,
   useUpdateCurrentUserMutation,
 } from '@yellowladder/shared-api';
-import { FormScreenLayout, useAppTheme } from '@yellowladder/shared-mobile-ui';
+import { FormScreenLayout, FormTextField, useAppTheme } from '@yellowladder/shared-mobile-ui';
 import {
   markUnauthenticated,
   selectCurrentUser,
@@ -15,9 +15,9 @@ import {
 } from '@yellowladder/shared-store';
 import { IdentityAuthenticationErrors } from '@yellowladder/shared-types';
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Button, Divider, HelperText, Text, TextInput } from 'react-native-paper';
 import { clearRefreshToken } from '../hooks/use-secure-refresh-token.hook';
 import type { AuthStackNavigationProp } from '../navigation/auth-stack.types';
@@ -49,9 +49,6 @@ export function ProfileEditScreen() {
   const [logout] = useLogoutMutation();
   const [profileError, setProfileError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [currentPwVisible, setCurrentPwVisible] = useState(false);
-  const [newPwVisible, setNewPwVisible] = useState(false);
-  const [confirmPwVisible, setConfirmPwVisible] = useState(false);
 
   const profileForm = useForm<ProfileEditFormValues>({
     resolver: zodResolver(profileEditSchema),
@@ -123,47 +120,15 @@ export function ProfileEditScreen() {
 
       <Divider style={{ marginVertical: theme.spacing.md }} />
 
-      <Controller
+      <FormTextField
         control={profileForm.control}
         name="firstName"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <TextInput
-              mode="outlined"
-              label={t('profile.firstNameLabel')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={Boolean(profileForm.formState.errors.firstName)}
-            />
-            <HelperText type="error" visible={Boolean(profileForm.formState.errors.firstName)}>
-              {profileForm.formState.errors.firstName
-                ? t(profileForm.formState.errors.firstName.message ?? 'validation.fieldRequired')
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('profile.firstNameLabel')}
       />
-      <Controller
+      <FormTextField
         control={profileForm.control}
         name="lastName"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <TextInput
-              mode="outlined"
-              label={t('profile.lastNameLabel')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={Boolean(profileForm.formState.errors.lastName)}
-            />
-            <HelperText type="error" visible={Boolean(profileForm.formState.errors.lastName)}>
-              {profileForm.formState.errors.lastName
-                ? t(profileForm.formState.errors.lastName.message ?? 'validation.fieldRequired')
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('profile.lastNameLabel')}
       />
       <TextInput
         mode="outlined"
@@ -172,27 +137,12 @@ export function ProfileEditScreen() {
         editable={false}
         left={<TextInput.Icon icon="email-outline" />}
       />
-      <Controller
+      <FormTextField
         control={profileForm.control}
         name="phoneE164"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
-            <TextInput
-              mode="outlined"
-              label={t('profile.phoneLabel')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              keyboardType="phone-pad"
-              error={Boolean(profileForm.formState.errors.phoneE164)}
-            />
-            <HelperText type="error" visible={Boolean(profileForm.formState.errors.phoneE164)}>
-              {profileForm.formState.errors.phoneE164
-                ? t(profileForm.formState.errors.phoneE164.message ?? 'validation.phoneInvalid')
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('profile.phoneLabel')}
+        keyboardType="phone-pad"
+        containerStyle={{ marginTop: theme.spacing.sm }}
       />
 
       {profileError ? (
@@ -215,107 +165,27 @@ export function ProfileEditScreen() {
         {t('profile.changePasswordTitle')}
       </Text>
 
-      <Controller
+      <FormTextField
         control={passwordForm.control}
         name="currentPassword"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginVertical: theme.spacing.sm }}>
-            <TextInput
-              mode="outlined"
-              label={t('profile.currentPasswordLabel')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              secureTextEntry={!currentPwVisible}
-              autoCapitalize="none"
-              right={
-                <TextInput.Icon
-                  icon={currentPwVisible ? 'eye-off-outline' : 'eye-outline'}
-                  onPress={() => setCurrentPwVisible((p) => !p)}
-                />
-              }
-              error={Boolean(passwordForm.formState.errors.currentPassword)}
-            />
-            <HelperText
-              type="error"
-              visible={Boolean(passwordForm.formState.errors.currentPassword)}
-            >
-              {passwordForm.formState.errors.currentPassword
-                ? t(
-                    passwordForm.formState.errors.currentPassword.message ??
-                      'validation.passwordRequired',
-                  )
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('profile.currentPasswordLabel')}
+        secureTextEntry
+        autoCapitalize="none"
+        containerStyle={{ marginVertical: theme.spacing.sm }}
       />
-      <Controller
+      <FormTextField
         control={passwordForm.control}
         name="newPassword"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <TextInput
-              mode="outlined"
-              label={t('profile.newPasswordLabel')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              secureTextEntry={!newPwVisible}
-              autoCapitalize="none"
-              right={
-                <TextInput.Icon
-                  icon={newPwVisible ? 'eye-off-outline' : 'eye-outline'}
-                  onPress={() => setNewPwVisible((p) => !p)}
-                />
-              }
-              error={Boolean(passwordForm.formState.errors.newPassword)}
-            />
-            <HelperText type="error" visible={Boolean(passwordForm.formState.errors.newPassword)}>
-              {passwordForm.formState.errors.newPassword
-                ? t(
-                    passwordForm.formState.errors.newPassword.message ??
-                      'validation.passwordRequired',
-                  )
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('profile.newPasswordLabel')}
+        secureTextEntry
+        autoCapitalize="none"
       />
-      <Controller
+      <FormTextField
         control={passwordForm.control}
         name="confirmNewPassword"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <TextInput
-              mode="outlined"
-              label={t('profile.confirmNewPasswordLabel')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              secureTextEntry={!confirmPwVisible}
-              autoCapitalize="none"
-              right={
-                <TextInput.Icon
-                  icon={confirmPwVisible ? 'eye-off-outline' : 'eye-outline'}
-                  onPress={() => setConfirmPwVisible((p) => !p)}
-                />
-              }
-              error={Boolean(passwordForm.formState.errors.confirmNewPassword)}
-            />
-            <HelperText
-              type="error"
-              visible={Boolean(passwordForm.formState.errors.confirmNewPassword)}
-            >
-              {passwordForm.formState.errors.confirmNewPassword
-                ? t(
-                    passwordForm.formState.errors.confirmNewPassword.message ??
-                      'validation.passwordsDoNotMatch',
-                  )
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('profile.confirmNewPasswordLabel')}
+        secureTextEntry
+        autoCapitalize="none"
       />
       {passwordError ? (
         <HelperText type="error" visible>

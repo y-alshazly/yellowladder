@@ -94,6 +94,9 @@ model Company {
   // Relations
   users                           User[]
   primaryContacts                 CompanyPrimaryContact[]
+  shops                           Shop[]
+  categories                      Category[]
+  menuItems                       MenuItem[]
 
   @@unique([idempotencyKey])
   @@index([businessTypeId])
@@ -156,9 +159,13 @@ model User {
   passwordResetTokens    PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   refreshTokenRecords    RefreshTokenRecord[]
+  userShops              UserShop[]
+  userShopItemOrders     UserShopItemOrder[]
 
   @@unique([emailNormalised])
   @@index([companyId])
+  @@index([companyId, role])
+  @@index([companyId, status])
   @@index([phoneE164])
   @@index([onboardingPhase, status])
   @@index([createdAt])

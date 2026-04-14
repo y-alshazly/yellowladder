@@ -48,6 +48,22 @@ export {
   type WizardSelfEmployedFormValues,
 } from './screens/wizard-self-employed.schema';
 
+// Team management screens (Feature 02)
+export { AddTeamMemberScreen } from './team/add-team-member.screen';
+export { MemberDetailScreen } from './team/edit-team-member.screen';
+export { RoleBadge, type RoleBadgeProps } from './team/role-badge.component';
+export { TeamMembersScreen } from './team/team-members.screen';
+
+// Schemas — team management
+export {
+  createTeamMemberSchema,
+  type CreateTeamMemberFormValues,
+} from './team/create-team-member.schema';
+export {
+  editTeamMemberSchema,
+  type EditTeamMemberFormValues,
+} from './team/edit-team-member.schema';
+
 // Hooks / utilities
 export { resolveResumeScreen } from './hooks/use-auth-navigator-routing.hook';
 export {

@@ -1,5 +1,6 @@
 import {
   fetchBaseQuery,
+  type BaseQueryApi,
   type BaseQueryFn,
   type FetchArgs,
   type FetchBaseQueryError,
@@ -65,16 +66,85 @@ function rawBaseQuery() {
   });
 }
 
+type RefreshOutcome = 'ok' | 'rejected' | 'transient';
+
+/**
+ * Shared in-flight refresh promise. Serializes concurrent 401-recoveries so
+ * that multiple parallel requests do not each POST /auth/refresh with the
+ * same (single-use) refresh token — a race that would leave one request
+ * succeeding and the others 401ing on a now-rotated token, booting the
+ * user out despite a valid session being re-established.
+ */
+let inflightRefresh: Promise<RefreshOutcome> | null = null;
+
+async function refreshSession(api: BaseQueryApi): Promise<RefreshOutcome> {
+  if (inflightRefresh) {
+    return inflightRefresh;
+  }
+  inflightRefresh = (async (): Promise<RefreshOutcome> => {
+    try {
+      if (!refreshTokenAccessor) return 'rejected';
+      const stored = await refreshTokenAccessor.read();
+      if (!stored) return 'rejected';
+      const state = api.getState() as Parameters<typeof selectCsrfToken>[0];
+      const csrfToken = selectCsrfToken(state) ?? stored.csrfToken;
+      const baseQuery = rawBaseQuery();
+      const refreshResult = await baseQuery(
+        {
+          url: '/auth/refresh',
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${stored.refreshToken}`,
+            'X-CSRF-Token': csrfToken,
+          },
+          body: {},
+        },
+        api,
+        {},
+      );
+      if (refreshResult.error || !refreshResult.data) {
+        const status = refreshResult.error?.status;
+        const isExplicitRejection = status === 401 || status === 403;
+        return isExplicitRejection ? 'rejected' : 'transient';
+      }
+      const refreshed = refreshResult.data as RefreshResponse;
+      await refreshTokenAccessor.write(refreshed.tokens);
+      api.dispatch(
+        setCredentials({
+          tokens: refreshed.tokens,
+          user: ((api.getState() as { auth: { user: AuthenticatedUser | null } }).auth.user ??
+            undefinedUser) as AuthenticatedUser,
+        }),
+      );
+      return 'ok';
+    } catch {
+      return 'transient';
+    } finally {
+      inflightRefresh = null;
+    }
+  })();
+  return inflightRefresh;
+}
+
 /**
  * RTK Query base query with automatic refresh-token retry on 401.
  *
  * Flow:
  *   1. Fire the original request.
- *   2. If it returns 401, read the refresh token from the injected accessor.
- *   3. POST /auth/refresh with the refresh token as a Bearer header and the
- *      CSRF token as `X-CSRF-Token`.
- *   4. On success, dispatch `setCredentials` and retry the original request
- *      exactly once. On failure, dispatch `markUnauthenticated` and bail.
+ *   2. On 401, join the single shared `refreshSession` promise. Concurrent
+ *      callers share one refresh instead of each POSTing /auth/refresh and
+ *      racing to consume the same single-use token.
+ *   3. If the refresh succeeded, retry the original request exactly once —
+ *      the caller never sees the 401.
+ *   4. If the refresh was explicitly REJECTED (401/403 from /auth/refresh —
+ *      token expired, reused, or revoked), wipe Keychain + flip Redux to
+ *      `unauthenticated` so `RootNavigator` sends the user to the login
+ *      stack. The original 401 still surfaces to the caller so the
+ *      in-flight mutation/query fails cleanly.
+ *   5. If the refresh failed TRANSIENTLY (network error, 5xx, timeout),
+ *      surface the original 401 but keep the session. The next attempt
+ *      (manual retry, background refetch, or next app launch) gets
+ *      another shot with the same refresh token.
  */
 export const yellowladderBaseQuery: BaseQueryFn<
   string | FetchArgs,
@@ -85,46 +155,17 @@ export const yellowladderBaseQuery: BaseQueryFn<
   const initialResult = await baseQuery(args, api, extraOptions);
   if (initialResult.error && initialResult.error.status === 401) {
     if (!refreshTokenAccessor) {
-      api.dispatch(markUnauthenticated());
       return initialResult;
     }
-    const stored = await refreshTokenAccessor.read();
-    if (!stored) {
-      api.dispatch(markUnauthenticated());
-      return initialResult;
+    const outcome = await refreshSession(api);
+    if (outcome === 'ok') {
+      return await baseQuery(args, api, extraOptions);
     }
-    const state = api.getState() as Parameters<typeof selectCsrfToken>[0];
-    const csrfToken = selectCsrfToken(state) ?? stored.csrfToken;
-    const refreshResult = await baseQuery(
-      {
-        url: '/auth/refresh',
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${stored.refreshToken}`,
-          'X-CSRF-Token': csrfToken,
-        },
-        body: {},
-      },
-      api,
-      extraOptions,
-    );
-    if (refreshResult.error || !refreshResult.data) {
+    if (outcome === 'rejected') {
       await refreshTokenAccessor.clear();
       api.dispatch(markUnauthenticated());
-      return initialResult;
     }
-    const refreshed = refreshResult.data as RefreshResponse;
-    await refreshTokenAccessor.write(refreshed.tokens);
-    api.dispatch(
-      setCredentials({
-        tokens: refreshed.tokens,
-        // On a refresh we don't get a new user payload — re-use the existing
-        // one from the store by passing whatever is currently there.
-        user: ((api.getState() as { auth: { user: AuthenticatedUser | null } }).auth.user ??
-          undefinedUser) as AuthenticatedUser,
-      }),
-    );
-    return await baseQuery(args, api, extraOptions);
+    return initialResult;
   }
   return initialResult;
 };

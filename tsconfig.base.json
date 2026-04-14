@@ -25,6 +25,15 @@
     "importHelpers": true,
     "paths": {
       "@yellowladder/backend": ["libs/backend/src/index.ts"],
+      "@yellowladder/backend-catalog-categories": ["libs/backend/catalog/categories/src/index.ts"],
+      "@yellowladder/backend-catalog-item-purchase-counts": [
+        "libs/backend/catalog/item-purchase-counts/src/index.ts"
+      ],
+      "@yellowladder/backend-catalog-menu-addons": [
+        "libs/backend/catalog/menu-addons/src/index.ts"
+      ],
+      "@yellowladder/backend-catalog-menu-items": ["libs/backend/catalog/menu-items/src/index.ts"],
+      "@yellowladder/backend-catalog-shops": ["libs/backend/catalog/shops/src/index.ts"],
       "@yellowladder/backend-identity-audit": ["libs/backend/identity/audit/src/index.ts"],
       "@yellowladder/backend-identity-authentication": [
         "libs/backend/identity/authentication/src/index.ts"
@@ -42,6 +51,7 @@
       "@yellowladder/backend-infra-database": ["libs/backend/infra/database/src/index.ts"],
       "@yellowladder/backend-infra-events": ["libs/backend/infra/events/src/index.ts"],
       "@yellowladder/mobile": ["libs/mobile/src/index.ts"],
+      "@yellowladder/mobile-catalog": ["libs/mobile/catalog/src/index.ts"],
       "@yellowladder/mobile-identity": ["libs/mobile/identity/src/index.ts"],
       "@yellowladder/shared": ["libs/shared/src/index.ts"],
       "@yellowladder/shared-api": ["libs/shared/api/src/index.ts"],

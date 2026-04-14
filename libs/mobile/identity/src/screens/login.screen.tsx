@@ -1,14 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigation } from '@react-navigation/native';
 import { useLoginMutation } from '@yellowladder/shared-api';
-import { AuthScreenLayout, useAppTheme } from '@yellowladder/shared-mobile-ui';
+import { AuthScreenLayout, FormTextField, useAppTheme } from '@yellowladder/shared-mobile-ui';
 import { setCredentials, useAppDispatch } from '@yellowladder/shared-store';
 import type { LoginResponse } from '@yellowladder/shared-types';
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
-import { Button, HelperText, Text, TextInput } from 'react-native-paper';
+import { Button, HelperText, Text } from 'react-native-paper';
 import { resolveResumeScreen } from '../hooks/use-auth-navigator-routing.hook';
 import { saveRefreshToken } from '../hooks/use-secure-refresh-token.hook';
 import type { AuthStackNavigationProp } from '../navigation/auth-stack.types';
@@ -27,7 +27,6 @@ export function LoginScreen() {
   const navigation = useNavigation<AuthStackNavigationProp>();
   const dispatch = useAppDispatch();
   const [login, { isLoading }] = useLoginMutation();
-  const [secureEntry, setSecureEntry] = useState(true);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -36,7 +35,7 @@ export function LoginScreen() {
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginRequestSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: 'jane.fresh10@gmail.com', password: 'Test12345678!' },
   });
 
   const onSubmit = async (values: LoginFormValues): Promise<void> => {
@@ -78,37 +77,15 @@ export function LoginScreen() {
 
   return (
     <AuthScreenLayout variant="solo" title={t('auth.login.title')}>
-      <Text
-        variant="labelLarge"
-        style={{
-          color: errors.email ? theme.colors.error : theme.colors.onSurface,
-          marginBottom: 4,
-        }}
-      >
-        {t('auth.login.emailLabel')}
-      </Text>
-      <Controller
+      <FormTextField
         control={control}
         name="email"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <TextInput
-              mode="outlined"
-              placeholder={t('auth.login.emailPlaceholder')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              left={<TextInput.Icon icon="email-outline" />}
-              error={Boolean(errors.email)}
-            />
-            <HelperText type="error" visible={Boolean(errors.email)}>
-              {errors.email ? t(errors.email.message ?? 'validation.emailRequired') : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('auth.login.emailLabel')}
+        leftIcon="email-outline"
+        placeholder={t('auth.login.emailPlaceholder')}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoComplete="email"
       />
       <View style={styles.passwordLabelRow}>
         <Text
@@ -125,33 +102,13 @@ export function LoginScreen() {
           {t('auth.login.forgotPassword')}
         </Text>
       </View>
-      <Controller
+      <FormTextField
         control={control}
         name="password"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <TextInput
-              mode="outlined"
-              placeholder={t('auth.login.passwordPlaceholder')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              secureTextEntry={secureEntry}
-              autoComplete="password"
-              left={<TextInput.Icon icon="lock-outline" />}
-              right={
-                <TextInput.Icon
-                  icon={secureEntry ? 'eye-off-outline' : 'eye-outline'}
-                  onPress={() => setSecureEntry((prev) => !prev)}
-                />
-              }
-              error={Boolean(errors.password)}
-            />
-            <HelperText type="error" visible={Boolean(errors.password)}>
-              {errors.password ? t(errors.password.message ?? 'validation.passwordRequired') : ' '}
-            </HelperText>
-          </View>
-        )}
+        leftIcon="lock-outline"
+        placeholder={t('auth.login.passwordPlaceholder')}
+        secureTextEntry
+        autoComplete="password"
       />
       {serverError ? (
         <HelperText type="error" visible>
@@ -200,9 +157,5 @@ const styles = StyleSheet.create({
   signInButton: { borderRadius: 8 },
   signInButtonContent: { paddingVertical: 8 },
   createAccountRow: { alignItems: 'center' },
-  createAccountLink: {
-    textDecorationLine: 'underline',
-    fontWeight: '600',
-    color: '#737373',
-  },
+  createAccountLink: { textDecorationLine: 'underline', fontWeight: '600', color: '#737373' },
 });

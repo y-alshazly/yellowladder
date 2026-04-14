@@ -246,6 +246,83 @@ export class CompaniesService {
     return this.buildResponse(created, user, context);
   }
 
+  async getOne(user: AuthenticatedUser): Promise<{
+    id: string;
+    name: string;
+    tradingName: string | null;
+    businessTypeCode: string;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }> {
+    this.authorizationService.requirePermission(user, Permissions.CompaniesRead);
+
+    if (!user.companyId) {
+      throw new BusinessException(
+        IdentityCompaniesErrors.CompanyNotFound,
+        'User is not linked to a company',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const company = await this.companiesRepository.findOneById(user.companyId);
+    if (!company) {
+      throw new BusinessException(
+        IdentityCompaniesErrors.CompanyNotFound,
+        'Company not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return company;
+  }
+
+  async updateOne(user: AuthenticatedUser, input: { name?: string; tradingName?: string | null }) {
+    this.authorizationService.requirePermission(user, Permissions.CompaniesUpdate);
+
+    if (!user.companyId) {
+      throw new BusinessException(
+        IdentityCompaniesErrors.CompanyNotFound,
+        'User is not linked to a company',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const existing = await this.companiesRepository.findOneById(user.companyId);
+    if (!existing) {
+      throw new BusinessException(
+        IdentityCompaniesErrors.CompanyNotFound,
+        'Company not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return this.companiesRepository.updateOne(user.companyId, input);
+  }
+
+  async deactivateOne(user: AuthenticatedUser) {
+    this.authorizationService.requirePermission(user, Permissions.CompaniesUpdate);
+
+    if (!user.companyId) {
+      throw new BusinessException(
+        IdentityCompaniesErrors.CompanyNotFound,
+        'User is not linked to a company',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const existing = await this.companiesRepository.findOneById(user.companyId);
+    if (!existing) {
+      throw new BusinessException(
+        IdentityCompaniesErrors.CompanyNotFound,
+        'Company not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return this.companiesRepository.updateOne(user.companyId, { isActive: false });
+  }
+
   private async buildResponse(
     company: {
       id: string;

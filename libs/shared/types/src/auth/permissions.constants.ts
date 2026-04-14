@@ -6,7 +6,7 @@
  * Keep this list in sync with `RolePermissionRegistry` in
  * `backend-identity-authorization`.
  *
- * Feature 01 subset only — extended in later features.
+ * Feature 01–04 — extended by later features.
  */
 export const Permissions = {
   // Users (self-service)
@@ -14,6 +14,15 @@ export const Permissions = {
   UsersUpdateSelf: 'users:update-self',
   UsersChangePasswordSelf: 'users:change-password-self',
   UsersUploadPhotoSelf: 'users:upload-photo-self',
+
+  // Users (team management — Feature 02)
+  UsersCreate: 'users:create',
+  UsersRead: 'users:read',
+  UsersUpdate: 'users:update',
+  UsersDelete: 'users:delete',
+  UsersManageRoles: 'users:manage-roles',
+  UsersAssignShops: 'users:assign-shops',
+  UsersResetPassword: 'users:reset-password',
 
   // Companies (create during onboarding, read own)
   CompaniesCreate: 'companies:create',
@@ -29,6 +38,37 @@ export const Permissions = {
   BusinessCategoriesRead: 'business-categories:read',
   AnnualTurnoverBandsRead: 'annual-turnover-bands:read',
   PaymentMethodsRead: 'payment-methods:read',
+
+  // Shops (Feature 03)
+  ShopsCreate: 'shops:create',
+  ShopsRead: 'shops:read',
+  ShopsUpdate: 'shops:update',
+  ShopsArchive: 'shops:archive',
+  ShopsReorder: 'shops:reorder',
+
+  // Categories (Feature 04)
+  CategoriesCreate: 'categories:create',
+  CategoriesRead: 'categories:read',
+  CategoriesUpdate: 'categories:update',
+  CategoriesDelete: 'categories:delete',
+  CategoriesReorder: 'categories:reorder',
+
+  // Menu Items (Feature 04)
+  MenuItemsCreate: 'menu-items:create',
+  MenuItemsRead: 'menu-items:read',
+  MenuItemsUpdate: 'menu-items:update',
+  MenuItemsDelete: 'menu-items:delete',
+
+  // Menu Addons (Feature 04)
+  MenuAddonsCreate: 'menu-addons:create',
+  MenuAddonsRead: 'menu-addons:read',
+  MenuAddonsUpdate: 'menu-addons:update',
+  MenuAddonsDelete: 'menu-addons:delete',
+
+  // Shop Overrides (Feature 04) — SHOP_MANAGER and above
+  ShopCategoriesUpdate: 'shop-categories:update',
+  ShopMenuItemsUpdate: 'shop-menu-items:update',
+  ShopMenuAddonsUpdate: 'shop-menu-addons:update',
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];

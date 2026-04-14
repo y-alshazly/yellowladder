@@ -31,7 +31,13 @@
     "vite": "*",
     "i18next": "*",
     "zod": "*",
-    "@hookform/resolvers": "*"
+    "@hookform/resolvers": "*",
+    "react-native-paper-dates": "*",
+    "react-native-gesture-handler": "*",
+    "@react-navigation/drawer": "*"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "reactotron-react-native": "*",
+    "reactotron-redux": "*"
+  }
 }

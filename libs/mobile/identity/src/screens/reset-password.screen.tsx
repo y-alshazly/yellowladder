@@ -1,13 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useCompletePasswordResetMutation } from '@yellowladder/shared-api';
-import { AuthScreenLayout, useAppTheme } from '@yellowladder/shared-mobile-ui';
+import { AuthScreenLayout, FormTextField, useAppTheme } from '@yellowladder/shared-mobile-ui';
 import { IdentityAuthenticationErrors } from '@yellowladder/shared-types';
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
-import { Button, HelperText, Text, TextInput } from 'react-native-paper';
+import { StyleSheet } from 'react-native';
+import { Button, HelperText, Text } from 'react-native-paper';
 import type { AuthStackNavigationProp, AuthStackParamList } from '../navigation/auth-stack.types';
 import { resetPasswordSchema, type ResetPasswordFormValues } from './reset-password.schema';
 
@@ -26,8 +26,6 @@ export function ResetPasswordScreen() {
   const token = route.params.token;
   const [completePasswordReset, { isLoading }] = useCompletePasswordResetMutation();
   const [serverError, setServerError] = useState<string | null>(null);
-  const [newPwVisible, setNewPwVisible] = useState(false);
-  const [confirmPwVisible, setConfirmPwVisible] = useState(false);
 
   const {
     control,
@@ -75,35 +73,13 @@ export function ResetPasswordScreen() {
       >
         {t('auth.resetPassword.passwordLabel')}
       </Text>
-      <Controller
+      <FormTextField
         control={control}
         name="newPassword"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <TextInput
-              mode="outlined"
-              placeholder={t('auth.resetPassword.passwordLabel')}
-              left={<TextInput.Icon icon="lock-outline" />}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              secureTextEntry={!newPwVisible}
-              autoCapitalize="none"
-              right={
-                <TextInput.Icon
-                  icon={newPwVisible ? 'eye-off-outline' : 'eye-outline'}
-                  onPress={() => setNewPwVisible((p) => !p)}
-                />
-              }
-              error={Boolean(errors.newPassword)}
-            />
-            <HelperText type="error" visible={Boolean(errors.newPassword)}>
-              {errors.newPassword
-                ? t(errors.newPassword.message ?? 'validation.passwordRequired')
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        leftIcon="lock-outline"
+        placeholder={t('auth.resetPassword.passwordLabel')}
+        secureTextEntry
+        autoCapitalize="none"
       />
       <Text
         variant="labelLarge"
@@ -114,35 +90,13 @@ export function ResetPasswordScreen() {
       >
         {t('auth.resetPassword.confirmPasswordLabel')}
       </Text>
-      <Controller
+      <FormTextField
         control={control}
         name="confirmNewPassword"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <TextInput
-              mode="outlined"
-              placeholder={t('auth.resetPassword.confirmPasswordLabel')}
-              left={<TextInput.Icon icon="lock-outline" />}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              secureTextEntry={!confirmPwVisible}
-              autoCapitalize="none"
-              right={
-                <TextInput.Icon
-                  icon={confirmPwVisible ? 'eye-off-outline' : 'eye-outline'}
-                  onPress={() => setConfirmPwVisible((p) => !p)}
-                />
-              }
-              error={Boolean(errors.confirmNewPassword)}
-            />
-            <HelperText type="error" visible={Boolean(errors.confirmNewPassword)}>
-              {errors.confirmNewPassword
-                ? t(errors.confirmNewPassword.message ?? 'validation.passwordsDoNotMatch')
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        leftIcon="lock-outline"
+        placeholder={t('auth.resetPassword.confirmPasswordLabel')}
+        secureTextEntry
+        autoCapitalize="none"
       />
       {serverError ? (
         <HelperText type="error" visible>

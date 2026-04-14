@@ -28,6 +28,10 @@ export class CompaniesRepository {
     return this.prisma.company.findFirst({ where: { idempotencyKey } });
   }
 
+  async updateOne(id: string, data: Prisma.CompanyUncheckedUpdateInput) {
+    return this.prisma.company.update({ where: { id }, data });
+  }
+
   /**
    * Atomic Company creation + primary contact snapshot + user linkage.
    *

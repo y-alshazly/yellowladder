@@ -68,3 +68,8 @@ export interface CreateCompanyResponse {
   user: CreateCompanyResponseUser;
   tokens: AuthTokens;
 }
+
+export interface UpdateCompanyRequest {
+  name?: string;
+  tradingName?: string | null;
+}

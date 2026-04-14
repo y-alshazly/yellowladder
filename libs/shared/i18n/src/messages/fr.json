@@ -19,7 +19,15 @@
     "yes": "Oui",
     "no": "Non",
     "select": "Sélectionner",
-    "somethingWentWrong": "Une erreur s'est produite. Veuillez réessayer."
+    "clear": "Effacer",
+    "delete": "Supprimer",
+    "rowsPerPage": "Lignes par page",
+    "paginationLabel": "{{from}}-{{to}} sur {{total}}",
+    "somethingWentWrong": "Une erreur s'est produite. Veuillez réessayer.",
+    "networkError": "Impossible de se connecter au serveur. Veuillez vérifier votre connexion.",
+    "serverError": "Erreur du serveur. Veuillez réessayer plus tard.",
+    "sessionExpired": "Votre session a expiré. Veuillez revenir en arrière et réessayer.",
+    "validationError": "Veuillez vérifier vos informations et réessayer."
   },
   "auth": {
     "start": {
@@ -62,6 +70,7 @@
       "termsLabel": "J'accepte les",
       "termsLink": "Conditions générales de Tappd",
       "duplicateEmail": "Un compte existe déjà avec cette adresse e-mail.",
+      "registrationFailed": "Échec de l'inscription : {{details}}",
       "submit": "Créer un compte"
     },
     "verifyEmail": {
@@ -74,7 +83,9 @@
       "codeExpired": "Ce code a expiré. Appuyez sur Renvoyer pour en obtenir un nouveau.",
       "attemptsExceeded": "Trop de tentatives. Appuyez sur Renvoyer pour obtenir un nouveau code.",
       "rateLimited": "Vous avez demandé trop de codes. Veuillez patienter {{minutes}} minutes.",
-      "verified": "Votre e-mail a été vérifié."
+      "verified": "Votre e-mail a été vérifié.",
+      "registrationPending": "L'inscription est en cours. Veuillez patienter.",
+      "verificationFailed": "Échec de la vérification : {{details}}"
     },
     "otp": {
       "title": "Veuillez vérifier votre compte",
@@ -233,6 +244,11 @@
     "submit": {
       "submitting": "Création de votre entreprise…",
       "alreadyExists": "Vous avez déjà terminé l'inscription. Redirection…",
+      "userAlreadyHasCompany": "Ce compte est déjà associé à une entreprise.",
+      "emailNotVerified": "Veuillez vérifier votre e-mail avant de créer une entreprise.",
+      "missingWizardData": "Certaines informations requises sont manquantes. Veuillez revenir en arrière et compléter toutes les étapes.",
+      "noContactSelected": "Veuillez sélectionner un contact principal.",
+      "creationFailed": "Échec de la création de l'entreprise : {{details}}",
       "retry": "Renvoyer"
     }
   },
@@ -281,5 +297,155 @@
   "home": {
     "placeholderTitle": "Bienvenue sur Tappd",
     "placeholderBody": "Votre espace de travail est prêt. La livraison de la Fonction 01 s'arrête ici — les écrans POS, Menu, Cuisine et Paramètres arriveront dans les prochaines fonctions."
+  },
+  "nav": {
+    "pointOfSale": "Point de vente",
+    "kitchen": "Cuisine",
+    "transactions": "Transactions",
+    "catalogue": "Catalogue",
+    "reporting": "Rapports",
+    "settings": "Paramètres",
+    "signOut": "Se déconnecter",
+    "settingsItems": {
+      "members": "Membres",
+      "general": "Général",
+      "subscriptions": "Abonnements",
+      "tax": "Taxes",
+      "discounts": "Réductions",
+      "integrations": "Intégrations"
+    }
+  },
+  "placeholder": {
+    "title": "{{screen}}",
+    "body": "Cet écran arrive bientôt."
+  },
+  "stores": {
+    "title": "Établissements",
+    "storeName": "Nom de l'établissement",
+    "addStore": "Ajouter un établissement",
+    "editName": "Modifier le nom",
+    "archive": "Archiver",
+    "restore": "Restaurer",
+    "archived": "(Archivé)",
+    "noStores": "Aucun établissement. Ajoutez votre premier établissement pour commencer.",
+    "addStoreTitle": "Ajouter un établissement",
+    "editStore": "Modifier l'établissement",
+    "editStoreTitle": "Modifier l'établissement",
+    "namePlaceholder": "ex. Paris",
+    "address": "Adresse",
+    "addressPlaceholder": "Ajouter une adresse",
+    "findAddressPlaceholder": "Rechercher une adresse...",
+    "street": "Rue",
+    "city": "Ville",
+    "postcode": "Code postal",
+    "storeCreated": "Établissement créé avec succès",
+    "storeUpdated": "Établissement mis à jour avec succès",
+    "storeArchived": "Établissement archivé",
+    "storeRestored": "Établissement restauré",
+    "editNameTitle": "Modifier le nom",
+    "nameRequired": "Le nom de l'établissement est requis"
+  },
+  "catalog": {
+    "title": "Catalogue",
+    "allShops": "Tous les magasins",
+    "addProduct": "Ajouter un produit",
+    "search": "Rechercher",
+    "noCategory": "Sans catégorie",
+    "addons": {
+      "colour": "Couleur",
+      "created": "Supplément créé",
+      "delete": "Supprimer",
+      "edit": "Modifier",
+      "maxSelections": "Sélections max.",
+      "multiSelect": "Autoriser la sélection multiple",
+      "newAddon": "Nouveau supplément",
+      "optionName": "Nom de l'option",
+      "priceModification": "Modification de prix",
+      "required": "Obligatoire",
+      "revertBack": "Rétablir",
+      "title": "Suppléments",
+      "updated": "Supplément mis à jour"
+    },
+    "categories": {
+      "addCategory": "Ajouter une catégorie",
+      "confirmDeleteMessage": "Voulez-vous vraiment supprimer la catégorie « {name} » ? Cette action est irréversible.",
+      "confirmDeleteTitle": "Supprimer la catégorie",
+      "created": "Catégorie créée",
+      "deleted": "Catégorie supprimée",
+      "deleteCategory": "Supprimer la catégorie",
+      "editCategory": "Modifier la catégorie",
+      "emojiTab": "Émoji",
+      "hasMenuItems": "Impossible de supprimer une catégorie contenant des articles",
+      "iconTab": "Icône",
+      "namePlaceholder": "ex. Cafés, Déjeuner, Sandwichs",
+      "title": "Catégories",
+      "updated": "Catégorie mise à jour"
+    },
+    "languages": {
+      "de": "Allemand",
+      "en": "Anglais",
+      "fr": "Français"
+    },
+    "menuItems": {
+      "active": "Actif",
+      "addAddon": "Ajouter",
+      "addons": "Suppléments",
+      "basePrice": "Prix de base",
+      "category": "Catégorie",
+      "confirmDeleteMessage": "Voulez-vous vraiment supprimer ce produit ? Cette action est irréversible.",
+      "confirmDeleteTitle": "Supprimer le produit",
+      "created": "Produit créé",
+      "deleted": "Produit supprimé",
+      "description": "Description",
+      "draft": "Brouillon",
+      "image": "Image",
+      "namePlaceholder": "Entrer le nom...",
+      "newItemName": "Nouveau produit",
+      "priceUpdated": "Prix mis à jour",
+      "productName": "Nom du produit",
+      "title": "Produits",
+      "updated": "Produit mis à jour"
+    },
+    "overrides": {
+      "revert": "Revenir aux valeurs par défaut",
+      "shopOverride": "Remplacement magasin",
+      "title": "Remplacements"
+    }
+  },
+  "team": {
+    "title": "Membres",
+    "addMember": "Ajouter un membre",
+    "editMember": "Modifier le membre",
+    "name": "Nom",
+    "searchPlaceholder": "Rechercher par nom ou e-mail…",
+    "filterByRole": "Filtrer par rôle",
+    "filterByShop": "Filtrer par magasin",
+    "noMembers": "Aucun membre trouvé",
+    "selectMember": "Sélectionnez un membre pour afficher les détails",
+    "roleAdmin": "Admin",
+    "roleManager": "Gérant",
+    "roleClerk": "Employé",
+    "email": "E-mail",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "phone": "Téléphone",
+    "countryCode": "Pays",
+    "role": "Rôle",
+    "shops": "Magasins",
+    "password": "Mot de passe",
+    "createMember": "Créer un membre",
+    "updateMember": "Enregistrer les modifications",
+    "deleteMember": "Supprimer le membre",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce membre ?",
+    "confirmResetPassword": "Un e-mail de réinitialisation du mot de passe sera envoyé à {email}.",
+    "memberCreated": "Membre créé avec succès",
+    "memberUpdated": "Membre mis à jour avec succès",
+    "memberDeleted": "Membre supprimé",
+    "passwordResetSent": "E-mail de réinitialisation envoyé",
+    "allShops": "Tous les magasins",
+    "selectRole": "Sélectionner un rôle",
+    "selectShops": "Sélectionner les magasins",
+    "passwordHint": "8 caractères minimum"
   }
 }

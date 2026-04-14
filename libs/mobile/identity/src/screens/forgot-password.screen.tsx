@@ -1,12 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigation } from '@react-navigation/native';
 import { useInitiatePasswordResetMutation } from '@yellowladder/shared-api';
-import { AuthScreenLayout, useAppTheme } from '@yellowladder/shared-mobile-ui';
+import { AuthScreenLayout, FormTextField, useAppTheme } from '@yellowladder/shared-mobile-ui';
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
-import { Button, HelperText, Text, TextInput } from 'react-native-paper';
+import { Button, HelperText, Text } from 'react-native-paper';
 import type { AuthStackNavigationProp } from '../navigation/auth-stack.types';
 import { forgotPasswordSchema, type ForgotPasswordFormValues } from './forgot-password.schema';
 
@@ -78,28 +78,14 @@ export function ForgotPasswordScreen() {
           >
             {t('auth.forgotPassword.emailLabel')}
           </Text>
-          <Controller
+          <FormTextField
             control={control}
             name="email"
-            render={({ field: { value, onChange, onBlur } }) => (
-              <View style={{ marginBottom: theme.spacing.sm }}>
-                <TextInput
-                  mode="outlined"
-                  placeholder={t('auth.forgotPassword.emailLabel')}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  left={<TextInput.Icon icon="email-outline" />}
-                  error={Boolean(errors.email)}
-                />
-                <HelperText type="error" visible={Boolean(errors.email)}>
-                  {errors.email ? t(errors.email.message ?? 'validation.emailRequired') : ' '}
-                </HelperText>
-              </View>
-            )}
+            leftIcon="email-outline"
+            placeholder={t('auth.forgotPassword.emailLabel')}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
           />
           {serverError ? (
             <HelperText type="error" visible>

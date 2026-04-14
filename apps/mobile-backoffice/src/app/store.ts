@@ -1,5 +1,6 @@
 import { yellowladderApi } from '@yellowladder/shared-api';
 import { setupStore } from '@yellowladder/shared-store';
+import { reactotronReduxEnhancer } from '../reactotron.config';
 
 /**
  * Mobile Redux store. Composes the `shared-store` slices with the
@@ -10,6 +11,7 @@ export const store = setupStore({
   apiReducerPath: yellowladderApi.reducerPath,
   apiReducer: yellowladderApi.reducer,
   apiMiddleware: yellowladderApi.middleware,
+  enhancers: reactotronReduxEnhancer ? [reactotronReduxEnhancer] : undefined,
 });
 
 export type AppStore = typeof store;

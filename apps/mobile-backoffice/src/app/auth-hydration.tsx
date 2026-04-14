@@ -14,6 +14,7 @@ import {
   markUnauthenticated,
   selectAuthStatus,
   setCredentials,
+  setTokens,
   useAppDispatch,
   useAppSelector,
 } from '@yellowladder/shared-store';
@@ -21,10 +22,15 @@ import type { AuthenticatedUser, AuthTokens, RefreshResponse } from '@yellowladd
 import { useEffect, useRef, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+type RefreshOutcome =
+  | { kind: 'ok'; data: RefreshResponse }
+  | { kind: 'rejected' } // backend explicitly rejected the refresh token
+  | { kind: 'transient' }; // network / 5xx — do not clear the session
+
 async function performHttpRefresh(
   refreshToken: string,
   csrfToken: string,
-): Promise<RefreshResponse | null> {
+): Promise<RefreshOutcome> {
   try {
     const response = await fetch(`${YELLOWLADDER_API_BASE_URL}/auth/refresh`, {
       method: 'POST',
@@ -36,10 +42,16 @@ async function performHttpRefresh(
       },
       body: JSON.stringify({}),
     });
-    if (!response.ok) return null;
-    return (await response.json()) as RefreshResponse;
+    if (response.status === 401 || response.status === 403) {
+      return { kind: 'rejected' };
+    }
+    if (!response.ok) {
+      return { kind: 'transient' };
+    }
+    const data = (await response.json()) as RefreshResponse;
+    return { kind: 'ok', data };
   } catch {
-    return null;
+    return { kind: 'transient' };
   }
 }
 
@@ -53,11 +65,12 @@ export interface AuthHydrationGateProps {
  *      Query base query so it can retry on 401.
  *   2. Read any persisted refresh token from Keychain.
  *   3. POST /auth/refresh with the stored refresh token + CSRF token.
- *   4. On success, fetch /users/me to populate the auth slice user.
- *   5. On failure, mark the auth slice unauthenticated.
- *
- * The children render once the auth slice transitions out of the
- * `hydrating` state.
+ *   4. Dispatch `setTokens` so the fresh access token is in Redux BEFORE
+ *      firing the /users/me query. This avoids a pointless 401 retry.
+ *   5. Fetch /users/me, then dispatch `setCredentials` to finalise.
+ *   6. Only clear the session on EXPLICIT refresh rejection. Network /
+ *      5xx errors leave the existing refresh token in place so the next
+ *      request can succeed.
  */
 export function AuthHydrationGate({ children }: AuthHydrationGateProps) {
   const dispatch = useAppDispatch();
@@ -92,17 +105,24 @@ export function AuthHydrationGate({ children }: AuthHydrationGateProps) {
           if (!cancelled) dispatch(markUnauthenticated());
           return;
         }
-        const refreshed = await performHttpRefresh(stored.refreshToken, stored.csrfToken);
+        const outcome = await performHttpRefresh(stored.refreshToken, stored.csrfToken);
         if (cancelled) return;
-        if (!refreshed) {
+        if (outcome.kind === 'rejected') {
           await clearRefreshToken();
           dispatch(markUnauthenticated());
           return;
         }
+        if (outcome.kind === 'transient') {
+          // Network / 5xx — treat as "no session right now" without
+          // clearing Keychain, so the next launch can try again.
+          dispatch(markHydrationFailed());
+          return;
+        }
+        const refreshed = outcome.data;
         await saveRefreshToken(refreshed.tokens);
-        // Fetch /users/me with the new access token so we can populate the
-        // slice user. Going through RTK Query guarantees the Authorization
-        // header is injected from the fresh slice state.
+        // Seed the access token into Redux FIRST so prepareHeaders picks
+        // it up on the /users/me call that follows.
+        dispatch(setTokens(refreshed.tokens));
         const userResult = await dispatch(
           yellowladderApi.endpoints.getCurrentUser.initiate(undefined, {
             forceRefetch: true,
@@ -132,7 +152,6 @@ export function AuthHydrationGate({ children }: AuthHydrationGateProps) {
       </View>
     );
   }
-  // React 19 supports returning ReactNode directly from a function component.
   return children as unknown as ReturnType<typeof AuthHydrationGate>;
 }
 

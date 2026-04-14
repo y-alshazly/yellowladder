@@ -2,6 +2,11 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { BackendModule } from '@yellowladder/backend';
+import { CategoriesModule } from '@yellowladder/backend-catalog-categories';
+import { ItemPurchaseCountsModule } from '@yellowladder/backend-catalog-item-purchase-counts';
+import { MenuAddonsModule } from '@yellowladder/backend-catalog-menu-addons';
+import { MenuItemsModule } from '@yellowladder/backend-catalog-menu-items';
+import { ShopsModule } from '@yellowladder/backend-catalog-shops';
 import { AuditModule } from '@yellowladder/backend-identity-audit';
 import { AuthenticationModule } from '@yellowladder/backend-identity-authentication';
 import { AuthorizationModule, RolesGuard } from '@yellowladder/backend-identity-authorization';
@@ -41,6 +46,11 @@ import { DomainEventsModule } from '@yellowladder/backend-infra-events';
     AuthenticationModule,
     UsersModule,
     CompaniesModule,
+    ShopsModule,
+    CategoriesModule,
+    MenuItemsModule,
+    MenuAddonsModule,
+    ItemPurchaseCountsModule,
 
     // Legacy health-check module (existing)
     BackendModule,

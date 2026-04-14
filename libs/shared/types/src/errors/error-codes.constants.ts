@@ -2,7 +2,7 @@
  * Domain-specific error codes per sub-module. Thrown by services via
  * `BusinessException` and serialised into API error responses.
  *
- * Feature 01 subset — extended by later features.
+ * Feature 01–04 — extended by later features.
  */
 
 export const IdentityAuthenticationErrors = {
@@ -30,6 +30,14 @@ export type IdentityAuthenticationError =
 export const IdentityUsersErrors = {
   UserNotFound: 'IDENTITY.USERS.USER_NOT_FOUND',
   ProfilePhotoNotSupported: 'IDENTITY.USERS.PROFILE_PHOTO_NOT_SUPPORTED',
+  DuplicateEmail: 'IDENTITY.USERS.DUPLICATE_EMAIL',
+  LastCompanyAdmin: 'IDENTITY.USERS.LAST_COMPANY_ADMIN',
+  PrivilegeEscalation: 'IDENTITY.USERS.PRIVILEGE_ESCALATION',
+  CannotDeleteSelf: 'IDENTITY.USERS.CANNOT_DELETE_SELF',
+  UserAlreadyDeleted: 'IDENTITY.USERS.USER_ALREADY_DELETED',
+  InvalidRoleAssignment: 'IDENTITY.USERS.INVALID_ROLE_ASSIGNMENT',
+  ShopNotInCompany: 'IDENTITY.USERS.SHOP_NOT_IN_COMPANY',
+  UserMustBelongToCompany: 'IDENTITY.USERS.USER_MUST_BELONG_TO_COMPANY',
 } as const;
 
 export type IdentityUsersError = (typeof IdentityUsersErrors)[keyof typeof IdentityUsersErrors];
@@ -56,3 +64,53 @@ export const CompaniesHouseErrors = {
 } as const;
 
 export type CompaniesHouseError = (typeof CompaniesHouseErrors)[keyof typeof CompaniesHouseErrors];
+
+export const CatalogShopsErrors = {
+  ShopNotFound: 'CATALOG.SHOPS.SHOP_NOT_FOUND',
+  ShopAlreadyArchived: 'CATALOG.SHOPS.SHOP_ALREADY_ARCHIVED',
+  ShopNotArchived: 'CATALOG.SHOPS.SHOP_NOT_ARCHIVED',
+  CannotArchiveMainShop: 'CATALOG.SHOPS.CANNOT_ARCHIVE_MAIN_SHOP',
+  MainShopAlreadyExists: 'CATALOG.SHOPS.MAIN_SHOP_ALREADY_EXISTS',
+  InvalidReorderList: 'CATALOG.SHOPS.INVALID_REORDER_LIST',
+  CompanyRequired: 'CATALOG.SHOPS.COMPANY_REQUIRED',
+} as const;
+
+export type CatalogShopsError = (typeof CatalogShopsErrors)[keyof typeof CatalogShopsErrors];
+
+export const CatalogCategoriesErrors = {
+  CategoryNotFound: 'CATALOG.CATEGORIES.CATEGORY_NOT_FOUND',
+  NameAlreadyExists: 'CATALOG.CATEGORIES.NAME_ALREADY_EXISTS',
+  InvalidReorderList: 'CATALOG.CATEGORIES.INVALID_REORDER_LIST',
+  HasMenuItems: 'CATALOG.CATEGORIES.HAS_MENU_ITEMS',
+} as const;
+
+export type CatalogCategoriesError =
+  (typeof CatalogCategoriesErrors)[keyof typeof CatalogCategoriesErrors];
+
+export const CatalogMenuItemsErrors = {
+  MenuItemNotFound: 'CATALOG.MENU_ITEMS.MENU_ITEM_NOT_FOUND',
+  CategoryNotFound: 'CATALOG.MENU_ITEMS.CATEGORY_NOT_FOUND',
+  NameAlreadyExists: 'CATALOG.MENU_ITEMS.NAME_ALREADY_EXISTS',
+} as const;
+
+export type CatalogMenuItemsError =
+  (typeof CatalogMenuItemsErrors)[keyof typeof CatalogMenuItemsErrors];
+
+export const CatalogMenuAddonsErrors = {
+  MenuAddonNotFound: 'CATALOG.MENU_ADDONS.MENU_ADDON_NOT_FOUND',
+  MenuAddonOptionNotFound: 'CATALOG.MENU_ADDONS.MENU_ADDON_OPTION_NOT_FOUND',
+  MenuItemNotFound: 'CATALOG.MENU_ADDONS.MENU_ITEM_NOT_FOUND',
+} as const;
+
+export type CatalogMenuAddonsError =
+  (typeof CatalogMenuAddonsErrors)[keyof typeof CatalogMenuAddonsErrors];
+
+export const CatalogShopOverridesErrors = {
+  ShopCategoryNotFound: 'CATALOG.SHOP_OVERRIDES.SHOP_CATEGORY_NOT_FOUND',
+  ShopMenuItemNotFound: 'CATALOG.SHOP_OVERRIDES.SHOP_MENU_ITEM_NOT_FOUND',
+  ShopMenuAddonNotFound: 'CATALOG.SHOP_OVERRIDES.SHOP_MENU_ADDON_NOT_FOUND',
+  ShopMenuAddonOptionNotFound: 'CATALOG.SHOP_OVERRIDES.SHOP_MENU_ADDON_OPTION_NOT_FOUND',
+} as const;
+
+export type CatalogShopOverridesError =
+  (typeof CatalogShopOverridesErrors)[keyof typeof CatalogShopOverridesErrors];

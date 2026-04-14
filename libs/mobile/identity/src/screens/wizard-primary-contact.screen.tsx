@@ -28,6 +28,7 @@ import {
 } from 'react-native-paper';
 import { NewContactModal } from '../components/new-contact-modal.component';
 import { WizardBottomBar } from '../components/wizard-bottom-bar.component';
+import { useRegisterAndAdvance } from '../hooks/use-register-and-advance.hook';
 import { useWizardDraft } from '../hooks/use-wizard-draft.hook';
 import type { AuthStackNavigationProp } from '../navigation/auth-stack.types';
 
@@ -53,6 +54,12 @@ export function WizardPrimaryContactScreen() {
   const authorisationConfirmed = useAppSelector(selectWizardAuthorisationConfirmed);
   const [newContactModalVisible, setNewContactModalVisible] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const {
+    register,
+    isRegistering,
+    error: registerError,
+    clearError: clearRegisterError,
+  } = useRegisterAndAdvance();
 
   const companyName = draft.companyOverrides.name ?? draft.companiesHouseLookup?.companyName ?? '';
 
@@ -61,14 +68,19 @@ export function WizardPrimaryContactScreen() {
     [selectedContactId, authorisationConfirmed],
   );
 
-  const handleForward = (): void => {
+  const handleForward = async (): Promise<void> => {
     setServerError(null);
+    clearRegisterError();
     if (!canGoForward) return;
     if (!draft.accountData?.email) {
       setServerError(t('common.somethingWentWrong'));
       return;
     }
     dispatch(confirmAuthorisation(new Date().toISOString()));
+    // Register the user before navigating to OTP. If registration fails we
+    // stay on this page so the error is visible next to the wizard button.
+    const ok = await register(draft.accountData);
+    if (!ok) return;
     navigation.navigate('VerifyEmail', { email: draft.accountData.email });
   };
 
@@ -106,7 +118,7 @@ export function WizardPrimaryContactScreen() {
           totalSteps={WIZARD_TOTAL_STEPS}
           onBack={() => navigation.goBack()}
           onForward={handleForward}
-          forwardDisabled={!canGoForward}
+          forwardDisabled={!canGoForward || isRegistering}
         />
       }
     >
@@ -195,9 +207,9 @@ export function WizardPrimaryContactScreen() {
         </Text>
       </View>
 
-      {serverError ? (
+      {serverError || registerError ? (
         <HelperText type="error" visible>
-          {serverError}
+          {serverError ?? registerError}
         </HelperText>
       ) : null}
 

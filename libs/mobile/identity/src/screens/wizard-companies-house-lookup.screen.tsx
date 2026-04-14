@@ -4,7 +4,7 @@ import {
   useLazyLookupCompaniesHouseQuery,
   useLazySearchCompaniesHouseQuery,
 } from '@yellowladder/shared-api';
-import { FormScreenLayout, useAppTheme } from '@yellowladder/shared-mobile-ui';
+import { FormScreenLayout, FormTextField, useAppTheme } from '@yellowladder/shared-mobile-ui';
 import {
   formatAddress,
   patchCompanyOverrides,
@@ -20,10 +20,10 @@ import type {
   CompaniesHouseSearchResultItem,
 } from '@yellowladder/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
-import { HelperText, List, Text, TextInput } from 'react-native-paper';
+import { HelperText, List, Text } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { EditCompanyModal } from '../components/edit-company-modal.component';
 import { WizardBottomBar } from '../components/wizard-bottom-bar.component';
@@ -82,10 +82,7 @@ export function WizardCompaniesHouseLookupScreen() {
 
   const lookup = draft.companiesHouseLookup;
 
-  const {
-    control,
-    formState: { errors },
-  } = useForm<WizardCompaniesHouseFormValues>({
+  const { control } = useForm<WizardCompaniesHouseFormValues>({
     resolver: zodResolver(wizardCompaniesHouseSchema),
     defaultValues: { query: '' },
   });
@@ -174,31 +171,13 @@ export function WizardCompaniesHouseLookupScreen() {
       >
         {t('wizard.connectBusiness.searchLabel')}
       </Text>
-      <Controller
+      <FormTextField
         control={control}
         name="query"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <TextInput
-              mode="outlined"
-              placeholder={t('wizard.connectBusiness.searchPlaceholder')}
-              value={value}
-              onChangeText={(text) => {
-                onChange(text);
-                debouncedSearch(text);
-              }}
-              onBlur={onBlur}
-              autoCapitalize="characters"
-              left={<TextInput.Icon icon="magnify" />}
-              error={Boolean(errors.query)}
-            />
-            <HelperText type={errors.query ? 'error' : 'info'} visible>
-              {errors.query
-                ? t(errors.query.message ?? 'validation.fieldRequired')
-                : t('wizard.connectBusiness.searchHelper')}
-            </HelperText>
-          </View>
-        )}
+        leftIcon="magnify"
+        placeholder={t('wizard.connectBusiness.searchPlaceholder')}
+        autoCapitalize="characters"
+        onChangeValue={debouncedSearch}
       />
 
       {status === 'empty' ? (

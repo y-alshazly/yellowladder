@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigation } from '@react-navigation/native';
-import { FormScreenLayout, useAppTheme } from '@yellowladder/shared-mobile-ui';
+import { FormScreenLayout, FormTextField, useAppTheme } from '@yellowladder/shared-mobile-ui';
 import {
   confirmAuthorisation,
   patchSelfEmployed,
@@ -13,6 +13,7 @@ import { StyleSheet, View } from 'react-native';
 import { Checkbox, HelperText, Switch, Text, TextInput, TouchableRipple } from 'react-native-paper';
 import { DatePickerModal } from 'react-native-paper-dates';
 import { WizardBottomBar } from '../components/wizard-bottom-bar.component';
+import { useRegisterAndAdvance } from '../hooks/use-register-and-advance.hook';
 import { useWizardDraft } from '../hooks/use-wizard-draft.hook';
 import type { AuthStackNavigationProp } from '../navigation/auth-stack.types';
 import {
@@ -44,6 +45,12 @@ export function WizardSelfEmployedScreen() {
   const { state: draft } = useWizardDraft();
   const [serverError, setServerError] = useState<string | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const {
+    register,
+    isRegistering,
+    error: registerError,
+    clearError: clearRegisterError,
+  } = useRegisterAndAdvance();
 
   const {
     control,
@@ -71,8 +78,9 @@ export function WizardSelfEmployedScreen() {
     setDatePickerOpen(false);
   }, []);
 
-  const onForward = handleSubmit((values) => {
+  const onForward = handleSubmit(async (values) => {
     setServerError(null);
+    clearRegisterError();
     const nowIso = new Date().toISOString();
     dispatch(
       patchSelfEmployed({
@@ -95,10 +103,16 @@ export function WizardSelfEmployedScreen() {
       }),
     );
     dispatch(confirmAuthorisation(nowIso));
-    // Routing change (2026-04-11): the self-employed branch no longer
-    // submits directly. The OTP screen now fires `POST /companies` after
-    // the email is verified, so this step only advances to OTP.
-    navigation.navigate('VerifyEmail', { email: draft.accountData?.email ?? '' });
+
+    if (!draft.accountData?.email) {
+      setServerError(t('common.somethingWentWrong'));
+      return;
+    }
+    // Register the user before navigating to OTP. Registration errors stay
+    // on this page so the OTP screen only has to worry about OTP errors.
+    const ok = await register(draft.accountData);
+    if (!ok) return;
+    navigation.navigate('VerifyEmail', { email: draft.accountData.email });
   });
 
   return (
@@ -113,94 +127,27 @@ export function WizardSelfEmployedScreen() {
           totalSteps={WIZARD_TOTAL_STEPS}
           onBack={() => navigation.goBack()}
           onForward={onForward}
+          forwardDisabled={isRegistering}
         />
       }
     >
-      <Controller
+      <FormTextField
         control={control}
         name="firstName"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <Text
-              variant="labelLarge"
-              style={{
-                color: errors.firstName ? theme.colors.error : theme.colors.onSurface,
-                marginBottom: 4,
-              }}
-            >
-              {t('wizard.selfEmployed.firstNameLabel')}
-            </Text>
-            <TextInput
-              mode="outlined"
-              placeholder={t('wizard.selfEmployed.firstNameLabel')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={Boolean(errors.firstName)}
-            />
-            <HelperText type="error" visible={Boolean(errors.firstName)}>
-              {errors.firstName ? t(errors.firstName.message ?? 'validation.fieldRequired') : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('wizard.selfEmployed.firstNameLabel')}
+        placeholder={t('wizard.selfEmployed.firstNameLabel')}
       />
-      <Controller
+      <FormTextField
         control={control}
         name="lastName"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <Text
-              variant="labelLarge"
-              style={{
-                color: errors.lastName ? theme.colors.error : theme.colors.onSurface,
-                marginBottom: 4,
-              }}
-            >
-              {t('wizard.selfEmployed.lastNameLabel')}
-            </Text>
-            <TextInput
-              mode="outlined"
-              placeholder={t('wizard.selfEmployed.lastNameLabel')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={Boolean(errors.lastName)}
-            />
-            <HelperText type="error" visible={Boolean(errors.lastName)}>
-              {errors.lastName ? t(errors.lastName.message ?? 'validation.fieldRequired') : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('wizard.selfEmployed.lastNameLabel')}
+        placeholder={t('wizard.selfEmployed.lastNameLabel')}
       />
-      <Controller
+      <FormTextField
         control={control}
         name="jobPosition"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <Text
-              variant="labelLarge"
-              style={{
-                color: errors.jobPosition ? theme.colors.error : theme.colors.onSurface,
-                marginBottom: 4,
-              }}
-            >
-              {t('wizard.selfEmployed.jobPositionLabel')}
-            </Text>
-            <TextInput
-              mode="outlined"
-              placeholder={t('wizard.selfEmployed.jobPositionLabel')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={Boolean(errors.jobPosition)}
-            />
-            <HelperText type="error" visible={Boolean(errors.jobPosition)}>
-              {errors.jobPosition
-                ? t(errors.jobPosition.message ?? 'validation.fieldRequired')
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('wizard.selfEmployed.jobPositionLabel')}
+        placeholder={t('wizard.selfEmployed.jobPositionLabel')}
       />
       <Controller
         control={control}
@@ -254,65 +201,17 @@ export function WizardSelfEmployedScreen() {
           );
         }}
       />
-      <Controller
+      <FormTextField
         control={control}
         name="legalBusinessName"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <Text
-              variant="labelLarge"
-              style={{
-                color: errors.legalBusinessName ? theme.colors.error : theme.colors.onSurface,
-                marginBottom: 4,
-              }}
-            >
-              {t('wizard.selfEmployed.legalBusinessNameLabel')}
-            </Text>
-            <TextInput
-              mode="outlined"
-              placeholder={t('wizard.selfEmployed.legalBusinessNameLabel')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={Boolean(errors.legalBusinessName)}
-            />
-            <HelperText type="error" visible={Boolean(errors.legalBusinessName)}>
-              {errors.legalBusinessName
-                ? t(errors.legalBusinessName.message ?? 'validation.fieldRequired')
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('wizard.selfEmployed.legalBusinessNameLabel')}
+        placeholder={t('wizard.selfEmployed.legalBusinessNameLabel')}
       />
-      <Controller
+      <FormTextField
         control={control}
         name="tradingName"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <Text
-              variant="labelLarge"
-              style={{
-                color: errors.tradingName ? theme.colors.error : theme.colors.onSurface,
-                marginBottom: 4,
-              }}
-            >
-              {t('wizard.selfEmployed.tradingNameLabel')}
-            </Text>
-            <TextInput
-              mode="outlined"
-              placeholder={t('wizard.selfEmployed.tradingNameLabel')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={Boolean(errors.tradingName)}
-            />
-            <HelperText type="error" visible={Boolean(errors.tradingName)}>
-              {errors.tradingName
-                ? t(errors.tradingName.message ?? 'validation.fieldRequired')
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('wizard.selfEmployed.tradingNameLabel')}
+        placeholder={t('wizard.selfEmployed.tradingNameLabel')}
       />
       <Text
         variant="labelLarge"
@@ -320,98 +219,24 @@ export function WizardSelfEmployedScreen() {
       >
         {t('wizard.selfEmployed.registeredAddressLabel')}
       </Text>
-      <Controller
+      <FormTextField
         control={control}
         name="registeredAddressLine1"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <Text
-              variant="labelLarge"
-              style={{
-                color: errors.registeredAddressLine1 ? theme.colors.error : theme.colors.onSurface,
-                marginBottom: 4,
-              }}
-            >
-              {t('wizard.common.address.line1')}
-            </Text>
-            <TextInput
-              mode="outlined"
-              placeholder={t('wizard.common.address.line1')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={Boolean(errors.registeredAddressLine1)}
-            />
-            <HelperText type="error" visible={Boolean(errors.registeredAddressLine1)}>
-              {errors.registeredAddressLine1
-                ? t(errors.registeredAddressLine1.message ?? 'validation.fieldRequired')
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('wizard.common.address.line1')}
+        placeholder={t('wizard.common.address.line1')}
       />
-      <Controller
+      <FormTextField
         control={control}
         name="registeredAddressCity"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <Text
-              variant="labelLarge"
-              style={{
-                color: errors.registeredAddressCity ? theme.colors.error : theme.colors.onSurface,
-                marginBottom: 4,
-              }}
-            >
-              {t('wizard.common.address.city')}
-            </Text>
-            <TextInput
-              mode="outlined"
-              placeholder={t('wizard.common.address.city')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={Boolean(errors.registeredAddressCity)}
-            />
-            <HelperText type="error" visible={Boolean(errors.registeredAddressCity)}>
-              {errors.registeredAddressCity
-                ? t(errors.registeredAddressCity.message ?? 'validation.fieldRequired')
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('wizard.common.address.city')}
+        placeholder={t('wizard.common.address.city')}
       />
-      <Controller
+      <FormTextField
         control={control}
         name="registeredAddressPostalCode"
-        render={({ field: { value, onChange, onBlur } }) => (
-          <View style={{ marginBottom: theme.spacing.sm }}>
-            <Text
-              variant="labelLarge"
-              style={{
-                color: errors.registeredAddressPostalCode
-                  ? theme.colors.error
-                  : theme.colors.onSurface,
-                marginBottom: 4,
-              }}
-            >
-              {t('wizard.common.address.postcode')}
-            </Text>
-            <TextInput
-              mode="outlined"
-              placeholder={t('wizard.common.address.postcode')}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              autoCapitalize="characters"
-              error={Boolean(errors.registeredAddressPostalCode)}
-            />
-            <HelperText type="error" visible={Boolean(errors.registeredAddressPostalCode)}>
-              {errors.registeredAddressPostalCode
-                ? t(errors.registeredAddressPostalCode.message ?? 'validation.fieldRequired')
-                : ' '}
-            </HelperText>
-          </View>
-        )}
+        label={t('wizard.common.address.postcode')}
+        placeholder={t('wizard.common.address.postcode')}
+        autoCapitalize="characters"
       />
       <Controller
         control={control}
@@ -445,9 +270,9 @@ export function WizardSelfEmployedScreen() {
           {t(errors.authorisationConfirmed.message ?? 'validation.authorisationRequired')}
         </HelperText>
       ) : null}
-      {serverError ? (
+      {serverError || registerError ? (
         <HelperText type="error" visible>
-          {serverError}
+          {serverError ?? registerError}
         </HelperText>
       ) : null}
     </FormScreenLayout>

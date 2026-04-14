@@ -19,7 +19,15 @@
     "yes": "Ja",
     "no": "Nein",
     "select": "Auswählen",
-    "somethingWentWrong": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    "clear": "Löschen",
+    "delete": "Löschen",
+    "rowsPerPage": "Zeilen pro Seite",
+    "paginationLabel": "{{from}}-{{to}} von {{total}}",
+    "somethingWentWrong": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+    "networkError": "Verbindung zum Server nicht möglich. Bitte prüfe deine Internetverbindung.",
+    "serverError": "Serverfehler. Bitte versuche es später erneut.",
+    "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte gehe zurück und versuche es erneut.",
+    "validationError": "Bitte überprüfe deine Angaben und versuche es erneut."
   },
   "auth": {
     "start": {
@@ -62,6 +70,7 @@
       "termsLabel": "Ich akzeptiere die",
       "termsLink": "Allgemeinen Geschäftsbedingungen von Tappd",
       "duplicateEmail": "Ein Konto mit dieser E-Mail-Adresse existiert bereits.",
+      "registrationFailed": "Registrierung fehlgeschlagen: {{details}}",
       "submit": "Konto erstellen"
     },
     "verifyEmail": {
@@ -74,7 +83,9 @@
       "codeExpired": "Dieser Code ist abgelaufen. Tippe auf „Erneut senden“, um einen neuen zu erhalten.",
       "attemptsExceeded": "Zu viele Versuche. Tippe auf „Erneut senden“, um einen neuen Code zu erhalten.",
       "rateLimited": "Du hast zu viele Codes angefordert. Bitte warte {{minutes}} Minuten.",
-      "verified": "Deine E-Mail-Adresse wurde bestätigt."
+      "verified": "Deine E-Mail-Adresse wurde bestätigt.",
+      "registrationPending": "Registrierung läuft noch. Bitte warten.",
+      "verificationFailed": "Verifizierung fehlgeschlagen: {{details}}"
     },
     "otp": {
       "title": "Bitte bestätige dein Konto",
@@ -233,6 +244,11 @@
     "submit": {
       "submitting": "Dein Unternehmen wird angelegt…",
       "alreadyExists": "Du hast die Einrichtung bereits abgeschlossen. Weiterleitung…",
+      "userAlreadyHasCompany": "Diesem Konto ist bereits ein Unternehmen zugeordnet.",
+      "emailNotVerified": "Bitte bestätige deine E-Mail-Adresse, bevor du ein Unternehmen erstellst.",
+      "missingWizardData": "Es fehlen einige erforderliche Angaben. Bitte gehe zurück und vervollständige alle Schritte.",
+      "noContactSelected": "Bitte wähle einen Hauptansprechpartner aus.",
+      "creationFailed": "Unternehmenserstellung fehlgeschlagen: {{details}}",
       "retry": "Erneut senden"
     }
   },
@@ -281,5 +297,155 @@
   "home": {
     "placeholderTitle": "Willkommen bei Tappd",
     "placeholderBody": "Dein Arbeitsbereich ist bereit. Die Übergabe von Feature 01 endet auf diesem Bildschirm — die POS-, Menü-, Küchen- und Einstellungsoberflächen kommen in späteren Features."
+  },
+  "nav": {
+    "pointOfSale": "Kasse",
+    "kitchen": "Küche",
+    "transactions": "Transaktionen",
+    "catalogue": "Katalog",
+    "reporting": "Berichte",
+    "settings": "Einstellungen",
+    "signOut": "Abmelden",
+    "settingsItems": {
+      "members": "Mitglieder",
+      "general": "Allgemein",
+      "subscriptions": "Abonnements",
+      "tax": "Steuern",
+      "discounts": "Rabatte",
+      "integrations": "Integrationen"
+    }
+  },
+  "placeholder": {
+    "title": "{{screen}}",
+    "body": "Dieser Bildschirm kommt bald."
+  },
+  "stores": {
+    "title": "Filialen",
+    "storeName": "Filialname",
+    "addStore": "Filiale hinzufügen",
+    "editName": "Name bearbeiten",
+    "archive": "Archivieren",
+    "restore": "Wiederherstellen",
+    "archived": "(Archiviert)",
+    "noStores": "Noch keine Filialen. Füge deine erste Filiale hinzu.",
+    "addStoreTitle": "Filiale hinzufügen",
+    "editStore": "Filiale bearbeiten",
+    "editStoreTitle": "Filiale bearbeiten",
+    "namePlaceholder": "z. B. Berlin",
+    "address": "Adresse",
+    "addressPlaceholder": "Adresse hinzufügen",
+    "findAddressPlaceholder": "Adresse suchen...",
+    "street": "Straße",
+    "city": "Stadt",
+    "postcode": "Postleitzahl",
+    "storeCreated": "Filiale erfolgreich erstellt",
+    "storeUpdated": "Filiale erfolgreich aktualisiert",
+    "storeArchived": "Filiale archiviert",
+    "storeRestored": "Filiale wiederhergestellt",
+    "editNameTitle": "Name bearbeiten",
+    "nameRequired": "Filialname ist erforderlich"
+  },
+  "catalog": {
+    "title": "Katalog",
+    "allShops": "Alle Filialen",
+    "addProduct": "Produkt hinzufügen",
+    "search": "Suchen",
+    "noCategory": "Keine Kategorie",
+    "addons": {
+      "colour": "Farbe",
+      "created": "Extra erstellt",
+      "delete": "Löschen",
+      "edit": "Bearbeiten",
+      "maxSelections": "Max. Auswahl",
+      "multiSelect": "Mehrfachauswahl erlauben",
+      "newAddon": "Neues Extra",
+      "optionName": "Optionsname",
+      "priceModification": "Preisänderung",
+      "required": "Erforderlich",
+      "revertBack": "Zurücksetzen",
+      "title": "Extras",
+      "updated": "Extra aktualisiert"
+    },
+    "categories": {
+      "addCategory": "Kategorie hinzufügen",
+      "confirmDeleteMessage": "Möchtest du die Kategorie „{name}“ wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
+      "confirmDeleteTitle": "Kategorie löschen",
+      "created": "Kategorie erstellt",
+      "deleted": "Kategorie gelöscht",
+      "deleteCategory": "Kategorie löschen",
+      "editCategory": "Kategorie bearbeiten",
+      "emojiTab": "Emoji",
+      "hasMenuItems": "Eine Kategorie mit Menüartikeln kann nicht gelöscht werden",
+      "iconTab": "Symbol",
+      "namePlaceholder": "z.B. Kaffee, Mittagessen, Sandwiches",
+      "title": "Kategorien",
+      "updated": "Kategorie aktualisiert"
+    },
+    "languages": {
+      "de": "Deutsch",
+      "en": "Englisch",
+      "fr": "Französisch"
+    },
+    "menuItems": {
+      "active": "Aktiv",
+      "addAddon": "Hinzufügen",
+      "addons": "Extras",
+      "basePrice": "Grundpreis",
+      "category": "Kategorie",
+      "confirmDeleteMessage": "Dieses Produkt wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
+      "confirmDeleteTitle": "Produkt löschen",
+      "created": "Produkt erstellt",
+      "deleted": "Produkt gelöscht",
+      "description": "Beschreibung",
+      "draft": "Entwurf",
+      "image": "Bild",
+      "namePlaceholder": "Name eingeben...",
+      "newItemName": "Neues Produkt",
+      "priceUpdated": "Preis aktualisiert",
+      "productName": "Produktname",
+      "title": "Produkte",
+      "updated": "Produkt aktualisiert"
+    },
+    "overrides": {
+      "revert": "Auf Firmenstandard zurücksetzen",
+      "shopOverride": "Filialüberschreibung",
+      "title": "Überschreibungen"
+    }
+  },
+  "team": {
+    "title": "Mitglieder",
+    "addMember": "Mitglied hinzufügen",
+    "editMember": "Mitglied bearbeiten",
+    "name": "Name",
+    "searchPlaceholder": "Nach Name oder E-Mail suchen…",
+    "filterByRole": "Nach Rolle filtern",
+    "filterByShop": "Nach Filiale filtern",
+    "noMembers": "Keine Teammitglieder gefunden",
+    "selectMember": "Wählen Sie ein Mitglied aus, um Details anzuzeigen",
+    "roleAdmin": "Admin",
+    "roleManager": "Manager",
+    "roleClerk": "Mitarbeiter",
+    "email": "E-Mail",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "phone": "Telefon",
+    "countryCode": "Land",
+    "role": "Rolle",
+    "shops": "Filialen",
+    "password": "Passwort",
+    "createMember": "Mitglied erstellen",
+    "updateMember": "Änderungen speichern",
+    "deleteMember": "Mitglied entfernen",
+    "resetPassword": "Passwort zurücksetzen",
+    "confirmDelete": "Möchten Sie dieses Mitglied wirklich entfernen?",
+    "confirmResetPassword": "Dies sendet eine E-Mail zum Zurücksetzen des Passworts an {email}.",
+    "memberCreated": "Teammitglied erfolgreich erstellt",
+    "memberUpdated": "Teammitglied erfolgreich aktualisiert",
+    "memberDeleted": "Teammitglied entfernt",
+    "passwordResetSent": "E-Mail zum Zurücksetzen des Passworts gesendet",
+    "allShops": "Alle Filialen",
+    "selectRole": "Rolle auswählen",
+    "selectShops": "Filialen auswählen",
+    "passwordHint": "Mindestens 8 Zeichen"
   }
 }

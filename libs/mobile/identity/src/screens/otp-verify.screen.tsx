@@ -1,7 +1,6 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import {
   useCreateCompanyMutation,
-  useRegisterMutation,
   useRequestOtpMutation,
   useVerifyOtpMutation,
 } from '@yellowladder/shared-api';
@@ -25,6 +24,30 @@ import { saveRefreshToken } from '../hooks/use-secure-refresh-token.hook';
 import { useWizardDraft } from '../hooks/use-wizard-draft.hook';
 import type { AuthStackNavigationProp, AuthStackParamList } from '../navigation/auth-stack.types';
 import { maskEmail } from '../utils/mask-email.util';
+
+/** Extract a user-facing message from an RTK Query error. */
+function extractApiErrorMessage(err: unknown): {
+  status?: number;
+  errorCode?: string;
+  message?: string;
+  messages?: string[];
+} {
+  const error = err as {
+    status?: number;
+    data?: {
+      errorCode?: string;
+      message?: string | string[];
+      metadata?: { remainingAttempts?: number };
+    };
+  };
+  const rawMessage = error.data?.message;
+  return {
+    status: error.status,
+    errorCode: error.data?.errorCode,
+    message: typeof rawMessage === 'string' ? rawMessage : undefined,
+    messages: Array.isArray(rawMessage) ? rawMessage : undefined,
+  };
+}
 
 const OTP_TTL_SECONDS = 300; // 5:00 countdown per architect §1.3
 
@@ -62,7 +85,6 @@ export function OtpVerifyScreen() {
   const email = route.params.email;
   const masked = useMemo(() => maskEmail(email), [email]);
 
-  const [registerUser, { isLoading: isRegistering }] = useRegisterMutation();
   const [verifyOtp, { isLoading: isVerifying }] = useVerifyOtpMutation();
   const [requestOtp, { isLoading: isRequesting }] = useRequestOtpMutation();
   const [createCompany, { isLoading: isCreatingCompany }] = useCreateCompanyMutation();
@@ -72,39 +94,7 @@ export function OtpVerifyScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(OTP_TTL_SECONDS);
-  const [registered, setRegistered] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const registrationAttemptedRef = useRef(false);
-
-  // Register the user on mount (deferred from signup step 1)
-  useEffect(() => {
-    if (registrationAttemptedRef.current || !draft.accountData) return;
-    registrationAttemptedRef.current = true;
-
-    (async () => {
-      try {
-        const regResult = await registerUser(draft.accountData!).unwrap();
-        await saveRefreshToken(regResult.tokens);
-        dispatch(
-          setCredentials({
-            tokens: regResult.tokens,
-            user: regResult.user,
-            resumeAt: regResult.resumeAt,
-          }),
-        );
-        setRegistered(true);
-      } catch (err) {
-        const error = err as { status?: number; data?: { errorCode?: string } };
-        if (error.data?.errorCode === 'IDENTITY.AUTHENTICATION.DUPLICATE_EMAIL') {
-          setErrorMessage(t('auth.signup.duplicateEmail'));
-        } else if (error.status === 429) {
-          setErrorMessage(t('auth.login.rateLimited'));
-        } else {
-          setErrorMessage(t('common.somethingWentWrong'));
-        }
-      }
-    })();
-  }, [draft.accountData, registerUser, dispatch, t]);
 
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -128,14 +118,23 @@ export function OtpVerifyScreen() {
       companiesHouseLookup: !!draft.companiesHouseLookup,
       selfEmployed: draft.selfEmployed,
     });
-    if (
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const missingAnyId =
       !draft.idempotencyKey ||
       !draft.businessProfile.businessCategoryId ||
       !draft.businessProfile.paymentMethodPreferenceId ||
-      !draft.businessProfile.annualTurnoverBandId
-    ) {
-      console.warn('submitCompanyCreation: missing required fields');
-      setErrorMessage(t('common.somethingWentWrong'));
+      !draft.businessProfile.annualTurnoverBandId;
+    const invalidAnyId =
+      !UUID_REGEX.test(draft.businessProfile.businessCategoryId ?? '') ||
+      !UUID_REGEX.test(draft.businessProfile.paymentMethodPreferenceId ?? '') ||
+      !UUID_REGEX.test(draft.businessProfile.annualTurnoverBandId ?? '');
+    if (missingAnyId || invalidAnyId) {
+      console.warn('submitCompanyCreation: missing or non-UUID wizard ids', {
+        businessCategoryId: draft.businessProfile.businessCategoryId,
+        paymentMethodPreferenceId: draft.businessProfile.paymentMethodPreferenceId,
+        annualTurnoverBandId: draft.businessProfile.annualTurnoverBandId,
+      });
+      setErrorMessage(t('wizard.submit.missingWizardData'));
       return;
     }
 
@@ -165,7 +164,7 @@ export function OtpVerifyScreen() {
       );
       if (!selectedContact) {
         console.warn('submitCompanyCreation: no selected contact');
-        setErrorMessage(t('common.somethingWentWrong'));
+        setErrorMessage(t('wizard.submit.noContactSelected'));
         return;
       }
       const overriddenName = draft.companyOverrides.name ?? draft.companiesHouseLookup.companyName;
@@ -201,7 +200,7 @@ export function OtpVerifyScreen() {
         !se.registeredAddress ||
         se.storeIsSameAddress === undefined
       ) {
-        setErrorMessage(t('common.somethingWentWrong'));
+        setErrorMessage(t('wizard.submit.missingWizardData'));
         return;
       }
       payload = {
@@ -223,7 +222,7 @@ export function OtpVerifyScreen() {
     }
 
     if (!payload) {
-      setErrorMessage(t('common.somethingWentWrong'));
+      setErrorMessage(t('wizard.submit.missingWizardData'));
       return;
     }
 
@@ -242,11 +241,26 @@ export function OtpVerifyScreen() {
       // App shell routes to the authenticated stack because companyId is set.
     } catch (err) {
       console.warn('createCompany error:', JSON.stringify(err, null, 2));
-      const error = err as { status?: number; data?: { errorCode?: string } };
-      if (error.data?.errorCode === IdentityCompaniesErrors.CompanyAlreadyExists) {
+      const { status, errorCode, message, messages } = extractApiErrorMessage(err);
+      if (errorCode === IdentityCompaniesErrors.CompanyAlreadyExists) {
         setErrorMessage(t('wizard.submit.alreadyExists'));
+      } else if (errorCode === IdentityCompaniesErrors.UserAlreadyHasCompany) {
+        setErrorMessage(t('wizard.submit.userAlreadyHasCompany'));
+      } else if (errorCode === IdentityCompaniesErrors.EmailNotVerified) {
+        setErrorMessage(t('wizard.submit.emailNotVerified'));
+      } else if (status === 401) {
+        setErrorMessage(t('common.sessionExpired'));
+      } else if (status === 400 && (messages?.length || message)) {
+        const detail = messages?.[0] ?? message ?? '';
+        setErrorMessage(t('wizard.submit.creationFailed', { details: detail }));
+      } else if (!status) {
+        setErrorMessage(t('common.networkError'));
+      } else if (status >= 500) {
+        setErrorMessage(t('common.serverError'));
       } else {
-        setErrorMessage(t('common.somethingWentWrong'));
+        setErrorMessage(
+          t('wizard.submit.creationFailed', { details: message ?? `Error ${status}` }),
+        );
       }
     }
   };
@@ -285,7 +299,7 @@ export function OtpVerifyScreen() {
     } catch (err) {
       const error = err as {
         status?: number;
-        data?: { errorCode?: string; metadata?: { remainingAttempts?: number } };
+        data?: { errorCode?: string; message?: string; metadata?: { remainingAttempts?: number } };
       };
       const errorCode = error.data?.errorCode;
       if (error.data?.metadata?.remainingAttempts !== undefined) {
@@ -303,8 +317,15 @@ export function OtpVerifyScreen() {
         setErrorMessage(t('auth.verifyEmail.attemptsExceeded'));
       } else if (errorCode === IdentityAuthenticationErrors.OtpRateLimited) {
         setErrorMessage(t('auth.verifyEmail.rateLimited', { minutes: 15 }));
+      } else if (error.status === 401) {
+        setErrorMessage(t('common.sessionExpired'));
+      } else if (!error.status) {
+        setErrorMessage(t('common.networkError'));
+      } else if (error.status >= 500) {
+        setErrorMessage(t('common.serverError'));
       } else {
-        setErrorMessage(t('common.somethingWentWrong'));
+        const detail = error.data?.message ?? `Error ${error.status}`;
+        setErrorMessage(t('auth.verifyEmail.verificationFailed', { details: detail }));
       }
     }
   };
@@ -323,12 +344,21 @@ export function OtpVerifyScreen() {
     try {
       await requestOtp({ email }).unwrap();
       setRemainingSeconds(OTP_TTL_SECONDS);
-    } catch {
-      setErrorMessage(t('common.somethingWentWrong'));
+    } catch (err) {
+      const { status, errorCode } = extractApiErrorMessage(err);
+      if (errorCode === IdentityAuthenticationErrors.OtpRateLimited || status === 429) {
+        setErrorMessage(t('auth.verifyEmail.rateLimited', { minutes: 15 }));
+      } else if (status === 401) {
+        setErrorMessage(t('common.sessionExpired'));
+      } else if (!status) {
+        setErrorMessage(t('common.networkError'));
+      } else {
+        setErrorMessage(t('common.serverError'));
+      }
     }
   };
 
-  const busy = isVerifying || isRegistering || isCreatingCompany;
+  const busy = isVerifying || isCreatingCompany;
 
   // navigation currently unused on this screen but kept for future
   // back-to-wizard recovery flows; referenced here to silence eslint.

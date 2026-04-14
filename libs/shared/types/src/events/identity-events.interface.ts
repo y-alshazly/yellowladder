@@ -11,6 +11,9 @@ export const IdentityEventTopic = {
   EmailVerified: 'identity.email-verified',
   PasswordResetRequested: 'identity.password-reset-requested',
   CompanyCreated: 'identity.company-created',
+  TeamMemberCreated: 'identity.team-member-created',
+  TeamMemberDeleted: 'identity.team-member-deleted',
+  AdminPasswordResetRequested: 'identity.admin-password-reset-requested',
 } as const;
 
 export type IdentityEventTopic = (typeof IdentityEventTopic)[keyof typeof IdentityEventTopic];
@@ -46,5 +49,32 @@ export interface CompanyCreatedEventPayload {
   companyId: string;
   userId: string;
   businessType: 'LIMITED_COMPANY' | 'SELF_EMPLOYED';
+  occurredAt: string;
+}
+
+export interface TeamMemberCreatedEventPayload {
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  companyId: string;
+  role: string;
+  createdByUserId: string;
+  occurredAt: string;
+}
+
+export interface TeamMemberDeletedEventPayload {
+  userId: string;
+  email: string;
+  companyId: string;
+  deletedByUserId: string;
+  occurredAt: string;
+}
+
+export interface AdminPasswordResetRequestedEventPayload {
+  userId: string;
+  email: string;
+  requestedByUserId: string;
+  expiresAt: string;
   occurredAt: string;
 }

@@ -1,6 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigation } from '@react-navigation/native';
-import { AppMenu, AuthScreenLayout, useAppTheme } from '@yellowladder/shared-mobile-ui';
+import {
+  AppMenu,
+  AuthScreenLayout,
+  FormTextField,
+  useAppTheme,
+} from '@yellowladder/shared-mobile-ui';
 import { setAccountData, useAppDispatch } from '@yellowladder/shared-store';
 import { BusinessType } from '@yellowladder/shared-types';
 import { useState } from 'react';
@@ -29,8 +34,6 @@ export function SignupAccountScreen() {
   const dispatch = useAppDispatch();
   const [businessTypeMenuVisible, setBusinessTypeMenuVisible] = useState(false);
   const [businessTypeAnchorWidth, setBusinessTypeAnchorWidth] = useState(0);
-  const [pwVisible, setPwVisible] = useState(false);
-  const [cpwVisible, setCpwVisible] = useState(false);
   const [termsModalVisible, setTermsModalVisible] = useState(false);
 
   const {
@@ -111,28 +114,13 @@ export function SignupAccountScreen() {
         >
           {t('auth.signup.emailLabel')}
         </Text>
-        <Controller
+        <FormTextField
           control={control}
           name="email"
-          render={({ field: { value, onChange, onBlur } }) => (
-            <>
-              <TextInput
-                mode="outlined"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                left={<TextInput.Icon icon="email-outline" />}
-                error={Boolean(errors.email)}
-              />
-              {errors.email ? (
-                <HelperText type="error" visible>
-                  {t(errors.email.message ?? 'validation.emailRequired')}
-                </HelperText>
-              ) : null}
-            </>
-          )}
+          leftIcon="email-outline"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          containerStyle={{ marginBottom: 0 }}
         />
       </View>
 
@@ -261,36 +249,15 @@ export function SignupAccountScreen() {
         >
           {t('auth.signup.passwordLabel')}
         </Text>
-        <Controller
+        <FormTextField
           control={control}
           name="password"
-          render={({ field: { value, onChange, onBlur } }) => (
-            <>
-              <TextInput
-                mode="outlined"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                secureTextEntry={!pwVisible}
-                autoCapitalize="none"
-                autoComplete="off"
-                textContentType="newPassword"
-                left={<TextInput.Icon icon="lock-outline" />}
-                right={
-                  <TextInput.Icon
-                    icon={pwVisible ? 'eye-off-outline' : 'eye-outline'}
-                    onPress={() => setPwVisible((p) => !p)}
-                  />
-                }
-                error={Boolean(errors.password)}
-              />
-              {errors.password ? (
-                <HelperText type="error" visible>
-                  {t(errors.password.message ?? 'validation.passwordRequired')}
-                </HelperText>
-              ) : null}
-            </>
-          )}
+          leftIcon="lock-outline"
+          secureTextEntry
+          autoCapitalize="none"
+          autoComplete="off"
+          textContentType="newPassword"
+          containerStyle={{ marginBottom: 0 }}
         />
       </View>
 
@@ -304,36 +271,15 @@ export function SignupAccountScreen() {
         >
           {t('auth.signup.confirmPasswordLabel')}
         </Text>
-        <Controller
+        <FormTextField
           control={control}
           name="confirmPassword"
-          render={({ field: { value, onChange, onBlur } }) => (
-            <>
-              <TextInput
-                mode="outlined"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                secureTextEntry={!cpwVisible}
-                autoCapitalize="none"
-                autoComplete="off"
-                textContentType="newPassword"
-                left={<TextInput.Icon icon="lock-outline" />}
-                right={
-                  <TextInput.Icon
-                    icon={cpwVisible ? 'eye-off-outline' : 'eye-outline'}
-                    onPress={() => setCpwVisible((p) => !p)}
-                  />
-                }
-                error={Boolean(errors.confirmPassword)}
-              />
-              {errors.confirmPassword ? (
-                <HelperText type="error" visible>
-                  {t(errors.confirmPassword.message ?? 'validation.passwordsDoNotMatch')}
-                </HelperText>
-              ) : null}
-            </>
-          )}
+          leftIcon="lock-outline"
+          secureTextEntry
+          autoCapitalize="none"
+          autoComplete="off"
+          textContentType="newPassword"
+          containerStyle={{ marginBottom: 0 }}
         />
       </View>
 

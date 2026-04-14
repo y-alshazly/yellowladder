@@ -332,33 +332,12 @@ export function WizardBusinessProfileScreen() {
       />
 
       {vatRegistered ? (
-        <Controller
+        <FormTextField
           control={control}
           name="vatNumber"
-          render={({ field: { value, onChange, onBlur } }) => (
-            <View style={{ marginBottom: theme.spacing.sm }}>
-              <Text
-                variant="labelLarge"
-                style={{ color: theme.colors.onSurface, marginBottom: theme.spacing.xs }}
-              >
-                {t('wizard.profile.vatNumberLabel')}
-              </Text>
-              <TextInput
-                mode="outlined"
-                placeholder="GB"
-                value={value ?? ''}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                autoCapitalize="characters"
-                error={Boolean(errors.vatNumber)}
-              />
-              <HelperText type="error" visible={Boolean(errors.vatNumber)}>
-                {errors.vatNumber
-                  ? t(errors.vatNumber.message ?? 'validation.vatNumberInvalid')
-                  : ' '}
-              </HelperText>
-            </View>
-          )}
+          label={t('wizard.profile.vatNumberLabel')}
+          placeholder="GB"
+          autoCapitalize="characters"
         />
       ) : null}
     </FormScreenLayout>

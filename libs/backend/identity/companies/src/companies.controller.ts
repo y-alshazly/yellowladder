@@ -2,9 +2,11 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
 } from '@nestjs/common';
@@ -21,6 +23,7 @@ import type { Request } from 'express';
 import { CompaniesService } from './companies.service';
 import { ApiCompanies } from './companies.swagger';
 import { CreateCompanyRequestDto } from './dtos/create-company-request.dto';
+import { UpdateCompanyDto } from './dtos/update-company.dto';
 
 @ApiCompanies()
 @Controller('companies')
@@ -40,9 +43,6 @@ export class CompaniesController {
     @Req() req: Request,
     @Headers('idempotency-key') idempotencyKeyHeader?: string,
   ): Promise<CreateCompanyResponse> {
-    // Architect §1.3 / §3.10 / §6.3: `Idempotency-Key` MUST be provided as
-    // an HTTP header. We accept a body field too for backwards-friendly
-    // clients, but if both are present they must agree.
     if (idempotencyKeyHeader && idempotencyKeyHeader !== dto.idempotencyKey) {
       throw new BadRequestException(
         'Idempotency-Key header does not match idempotencyKey field in body',
@@ -51,8 +51,6 @@ export class CompaniesController {
     if (!idempotencyKeyHeader && !dto.idempotencyKey) {
       throw new BadRequestException('Idempotency-Key header is required');
     }
-    // Header is authoritative — override the body copy so downstream code
-    // reads a single canonical key.
     if (idempotencyKeyHeader) {
       dto.idempotencyKey = idempotencyKeyHeader;
     }
@@ -60,6 +58,26 @@ export class CompaniesController {
       remoteIp: this.extractIp(req),
       userAgent: req.headers['user-agent'] ?? null,
     });
+  }
+
+  @Get('me')
+  @RequirePermission(Permissions.CompaniesRead)
+  async getOwn(@CurrentUser() user: AuthenticatedUser) {
+    return this.companiesService.getOne(user);
+  }
+
+  @Patch('me')
+  @RequirePermission(Permissions.CompaniesUpdate)
+  @AuditLog({ action: 'Update', resource: 'Company' })
+  async updateOwn(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateCompanyDto) {
+    return this.companiesService.updateOne(user, UpdateCompanyDto.toInput(dto));
+  }
+
+  @Post('me/deactivate')
+  @RequirePermission(Permissions.CompaniesUpdate)
+  @AuditLog({ action: 'Deactivate', resource: 'Company' })
+  async deactivateOwn(@CurrentUser() user: AuthenticatedUser) {
+    return this.companiesService.deactivateOne(user);
   }
 
   private extractIp(req: Request): string | null {
